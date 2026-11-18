@@ -1,0 +1,14 @@
+{
+  "name": "@repo/auth",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "bun check"
+  },
+  "dependencies": {
+    "@repo/db": "workspace:*"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@repo/game-bridge",
+  "type": "module",
+  "private": true,
+  "exports": {
+    "./manifest": "./src/manifest.ts",
+    "./client": "./src/client/index.ts",
+    "./server": "./src/server/index.ts"
+  },
+  "scripts": {
+    "typecheck": "bun check"
+  },
+  "dependencies": {
+    "@repo/game-core": "workspace:*",
+    "@repo/game-protocol": "workspace:*"
+  }
+}

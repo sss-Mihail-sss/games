@@ -1,0 +1,14 @@
+{
+  "name": "api",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun --hot src/index.ts",
+    "typecheck": "bun check"
+  },
+  "dependencies": {
+    "@repo/contracts": "workspace:*",
+    "@repo/db": "workspace:*",
+    "@repo/auth": "workspace:*"
+  }
+}

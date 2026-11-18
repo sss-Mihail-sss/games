@@ -1,0 +1,25 @@
+{
+  "name": "games.secrii.dev",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "games/*"
+  ],
+  "scripts": {
+    "dev": "bun run --parallel --filter '*' dev",
+    "dev:web": "bun run --filter web dev",
+    "dev:api": "bun run --filter api dev",
+    "dev:game": "bun run --filter game-server dev",
+    "typecheck": "bun check",
+    "test": "bun test --pass-with-no-tests"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^7"
+  }
+}

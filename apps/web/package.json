@@ -1,0 +1,15 @@
+{
+  "name": "web",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun --hot src/index.ts",
+    "typecheck": "bun check"
+  },
+  "dependencies": {
+    "@repo/ui": "workspace:*",
+    "@repo/game-core": "workspace:*",
+    "@repo/contracts": "workspace:*",
+    "@repo/game-bridge": "workspace:*"
+  }
+}

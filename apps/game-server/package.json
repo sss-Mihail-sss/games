@@ -1,0 +1,16 @@
+{
+  "name": "game-server",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun --hot src/index.ts",
+    "typecheck": "bun check"
+  },
+  "dependencies": {
+    "@colyseus/bun-websockets": "^0.18.5",
+    "@colyseus/schema": "^5.0.49",
+    "@repo/game-bridge": "workspace:*",
+    "@repo/game-protocol": "workspace:*",
+    "colyseus": "^0.18.12"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./apps/web" },
+    { "path": "./apps/api" },
+    { "path": "./apps/game-server" },
+    { "path": "./packages/ui" },
+    { "path": "./packages/game-core" },
+    { "path": "./packages/game-protocol" },
+    { "path": "./packages/contracts" },
+    { "path": "./packages/db" },
+    { "path": "./packages/auth" },
+    { "path": "./games/bridge" }
+  ]
+}
