@@ -7,5 +7,9 @@
   },
   "scripts": {
     "typecheck": "bun check"
+  },
+  "dependencies": {
+    "zod": "catalog:",
+    "@repo/utils": "workspace:*"
   }
 }
