@@ -1,23 +1,44 @@
 import { describe, expect, test } from "bun:test";
-import { dirname, relative, resolve } from "node:path";
+import { dirname, extname, relative, resolve } from "node:path";
 
 /**
  * The sim runs in the browser (prediction) and on the server (M2), so it may only
  * import the protocol and its own files. tsconfig.json here already rejects DOM
  * globals; this test rejects imports, e.g. `three`, `../client` or `@repo/game-core`
  * (DOM input and a requestAnimationFrame loop).
+ *
+ * Imports are found by Bun's own parser, not a regex: it sees `require()`,
+ * `import x = require()`, `export *`, dynamic `import()` and odd formatting, and
+ * ignores the same text inside comments and strings. It does not report imports
+ * that TypeScript erases (`import type`, or names used only as types): those never
+ * reach the server at runtime, so they can't break it.
  */
 const ALLOWED_PACKAGES = new Set(["@repo/game-protocol"]);
 const ALLOWED_IN_TESTS = new Set(["bun:test", "node:path"]);
 
 const SIM_DIR = import.meta.dir;
+const SOURCES = "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}";
 
-// Static imports, re-exports, side-effect imports and dynamic import().
-const IMPORT =
-  /(?:^|[\s;])(?:import|export)\s[^"'`;]*?from\s*["']([^"']+)["']|(?:^|[\s;])import\s*["']([^"']+)["']|\bimport\s*\(\s*["']([^"']+)["']\s*\)/g;
+const LOADERS: Record<string, "ts" | "tsx" | "js" | "jsx"> = {
+  ".ts": "ts",
+  ".mts": "ts",
+  ".cts": "ts",
+  ".tsx": "tsx",
+  ".js": "js",
+  ".mjs": "js",
+  ".cjs": "js",
+  ".jsx": "jsx",
+};
 
-function importsOf(source: string): string[] {
-  return [...source.matchAll(IMPORT)].map((m) => m[1] ?? m[2] ?? m[3] ?? "");
+const transpilers = {
+  ts: new Bun.Transpiler({ loader: "ts" }),
+  tsx: new Bun.Transpiler({ loader: "tsx" }),
+  js: new Bun.Transpiler({ loader: "js" }),
+  jsx: new Bun.Transpiler({ loader: "jsx" }),
+};
+
+function importsOf(source: string, loader: keyof typeof transpilers = "ts") {
+  return transpilers[loader].scanImports(source).map((entry) => entry.path);
 }
 
 function violation(file: string, specifier: string): string | null {
@@ -29,45 +50,54 @@ function violation(file: string, specifier: string): string | null {
   if (ALLOWED_PACKAGES.has(specifier)) {
     return null;
   }
-  if (file.endsWith(".test.ts") && ALLOWED_IN_TESTS.has(specifier)) {
+  if (/\.test\.[cm]?[jt]sx?$/.test(file) && ALLOWED_IN_TESTS.has(specifier)) {
     return null;
   }
   return `imports ${specifier}`;
 }
 
 describe("importsOf", () => {
-  test("finds every import form", () => {
+  test.each([
+    ["a static import", 'import { a } from "three";'],
+    ["a side-effect import", 'import "three";'],
+    ["a re-export", 'export { a } from "three";'],
+    ["export *", 'export * from "three";'],
+    ["no whitespace", 'import{a}from"three";'],
+    [
+      "a comment with an apostrophe",
+      'import {\n  a, // it\'s fine\n} from "three";',
+    ],
+    ["require()", 'const t = require("three");'],
+    ["import = require()", 'import t = require("three");'],
+    ["dynamic import()", 'const t = import("three");'],
+    ["a template literal", "const t = import(`three`);"],
+    ["a comment inside import()", 'const t = import(/* x */ "three");'],
+  ])("sees %s", (_, source) => {
+    expect(importsOf(source)).toContain("three");
+  });
+
+  test("ignores the same text in comments and strings", () => {
     const source = [
-      'import { a } from "./a.ts";',
-      'import type { B } from "@repo/game-protocol";',
-      'export { c } from "../client/c.ts";',
-      'import "three";',
-      'const d = await import("@repo/game-core");',
-      "import {\n  e,\n  f,\n} from './e.ts';",
+      '// don\'t import "three" here',
+      "/* import { a } from 'three'; */",
+      "export const s = \"import('three')\";",
     ].join("\n");
 
-    expect(importsOf(source)).toEqual([
-      "./a.ts",
-      "@repo/game-protocol",
-      "../client/c.ts",
-      "three",
-      "@repo/game-core",
-      "./e.ts",
-    ]);
+    expect(importsOf(source)).toEqual([]);
   });
 });
 
 describe("sim boundary", () => {
   test("src/sim imports only the protocol and its own files", async () => {
     const files = await Array.fromAsync(
-      new Bun.Glob("**/*.ts").scan({ cwd: SIM_DIR, absolute: true }),
+      new Bun.Glob(SOURCES).scan({ cwd: SIM_DIR, absolute: true }),
     );
     expect(files.length).toBeGreaterThan(1); // the scan really found the sim
 
     const problems: string[] = [];
-    // This file is skipped: its own examples above contain forbidden imports as strings.
-    for (const file of files.filter((f) => f !== import.meta.path)) {
-      for (const specifier of importsOf(await Bun.file(file).text())) {
+    for (const file of files) {
+      const loader = LOADERS[extname(file)] ?? "ts";
+      for (const specifier of importsOf(await Bun.file(file).text(), loader)) {
         const problem = violation(file, specifier);
         if (problem) {
           problems.push(`${relative(SIM_DIR, file)} ${problem}`);

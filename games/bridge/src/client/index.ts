@@ -52,8 +52,15 @@ export default defineGame({
     });
     loop.start();
 
-    // Reverse order of creation. defineGame makes this idempotent.
+    // Reverse order of creation. It guards itself: defineGame only wraps the
+    // function we *return*, so the early call below would otherwise run twice
+    // (here, then again from mountGame through the wrapper).
+    let disposed = false;
     const unmount = () => {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
       loop.stop();
       input.dispose();
       view.dispose();

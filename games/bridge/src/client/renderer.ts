@@ -32,14 +32,21 @@ export function createView(
   element.append(canvas);
 
   let quality = settings.current.quality;
-  let width = element.clientWidth;
-  let height = element.clientHeight;
+  // Content box, like ResizeObserver's contentRect below: padding is not ours to draw on.
+  const style = getComputedStyle(element);
+  let width =
+    element.clientWidth -
+    parseFloat(style.paddingLeft) -
+    parseFloat(style.paddingRight);
+  let height =
+    element.clientHeight -
+    parseFloat(style.paddingTop) -
+    parseFloat(style.paddingBottom);
 
   const resize = () => {
-    if (width === 0 || height === 0) {
+    if (width <= 0 || height <= 0) {
       return; // hidden container: keep the last good size
     }
-    // Re-read every time: zoom or moving the window to another monitor changes it.
     renderer.setPixelRatio(
       Math.min(window.devicePixelRatio, PIXEL_RATIO_CAP[quality]),
     );
@@ -61,7 +68,28 @@ export function createView(
   });
   observer.observe(element);
 
+  // Moving the window to a monitor with another pixel density changes
+  // devicePixelRatio without resizing anything, so ResizeObserver stays silent.
+  // A query for the current ratio fires once when it stops matching; then we
+  // watch the new ratio. (Browser zoom also lands here.)
+  let pixelRatioQuery: MediaQueryList | null = null;
+  const onPixelRatioChange = () => {
+    resize();
+    watchPixelRatio();
+  };
+  const watchPixelRatio = () => {
+    pixelRatioQuery?.removeEventListener("change", onPixelRatioChange);
+    pixelRatioQuery = window.matchMedia(
+      `(resolution: ${window.devicePixelRatio}dppx)`,
+    );
+    pixelRatioQuery.addEventListener("change", onPixelRatioChange);
+  };
+  watchPixelRatio();
+
   const unsubscribe = settings.subscribe((next) => {
+    if (next.quality === quality) {
+      return; // volume and the rest don't touch the drawing buffer
+    }
     quality = next.quality;
     resize();
   });
@@ -71,6 +99,7 @@ export function createView(
     canvas,
     dispose: () => {
       observer.disconnect();
+      pixelRatioQuery?.removeEventListener("change", onPixelRatioChange);
       unsubscribe();
       renderer.dispose();
       // Free the GPU context now instead of on GC, or Chrome starts warning
