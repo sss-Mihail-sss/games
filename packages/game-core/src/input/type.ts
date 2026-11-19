@@ -12,8 +12,12 @@ export interface InputOptions<A extends readonly string[]> {
 }
 
 export interface Input<A extends readonly string[]> {
-  /** Снимок за тик. Вызывать ровно один раз в update(). */
-  sample(tick: number): InputFrame;
+  /**
+   * Снимок за тик. Вызывать ровно один раз в update().
+   * @param yaw поворот камеры, уже квантованный (`quantizeYaw`). Клавиатура камеру
+   *            не знает и просто кладёт значение в кадр; в M1 мышь переедет сюда.
+   */
+  sample(tick: number, yaw: number): InputFrame;
   setBindings(bindings: Bindings<A>): void;
   dispose(): void;
 }
