@@ -8,23 +8,23 @@
 
 ### `@repo/game-protocol` — модуль `input-frame/` (без DOM, нужен и серверу)
 
-- [ ] Тип `InputFrame`: `{ tick; held; pressed; released }`, где три поля — битовые маски действий (uint32).
-- [ ] `defineActions(["moveForward", "grab", …] as const)`: порядок в массиве задаёт номер бита. Возвращает помощники `bit(action)`, `isHeld(frame, action)`, `wasPressed(frame, action)`, `wasReleased(frame, action)`. Больше 32 действий или дубликаты → ошибка.
-- [ ] Кодек `encodeInputFrame(frame): Uint8Array` и `decodeInputFrame(bytes): InputFrame`. Формат v1: 1 байт версии + 4 × uint32 little-endian = 17 байт.
-- [ ] `decodeInputFrame` не доверяет входу: данные придут от клиента по сети. Неверная длина или неизвестная версия → понятная ошибка, а не тихий неправильный кадр.
+- [x] Тип `InputFrame`: `{ tick; held; pressed; released }`, где три поля — битовые маски действий (uint32).
+- [x] `defineActions(["moveForward", "grab", …] as const)`: порядок в массиве задаёт номер бита. Возвращает помощники `bit(action)`, `isHeld(frame, action)`, `wasPressed(frame, action)`, `wasReleased(frame, action)`. Больше 32 действий или дубликаты → ошибка.
+- [x] Кодек `encodeInputFrame(frame): Uint8Array` и `decodeInputFrame(bytes): InputFrame`. Формат v1: 1 байт версии + 4 × uint32 little-endian = 17 байт.
+- [x] `decodeInputFrame` не доверяет входу: данные придут от клиента по сети. Неверная длина или неизвестная версия → понятная ошибка, а не тихий неправильный кадр.
 
 ### `@repo/game-core` — модуль `input/` (DOM)
 
-- [ ] `createInput({ actions, bindings, target? })`: `bindings` — карта «действие → список источников» (`"Key:KeyW"`), `target` — по умолчанию `window`.
-- [ ] `sample(tick): InputFrame` — вызывается раз в тик из `update`. Возвращает зажатые действия, а также нажатые и отпущенные с прошлого `sample`.
-- [ ] `setBindings()` — переназначение клавиш на лету.
-- [ ] `dispose()` снимает все слушатели.
-- [ ] Тесты: события подаются через обычный `EventTarget` и `Event` с полем `code`, без браузера.
+- [x] `createInput({ actions, bindings, target? })`: `bindings` — карта «действие → список источников» (`"Key:KeyW"`), `target` — по умолчанию `window`.
+- [x] `sample(tick): InputFrame` — вызывается раз в тик из `update`. Возвращает зажатые действия, а также нажатые и отпущенные с прошлого `sample`.
+- [x] `setBindings()` — переназначение клавиш на лету.
+- [x] `dispose()` снимает все слушатели.
+- [x] Тесты: события подаются через обычный `EventTarget` и `Event` с полем `code`, без браузера.
 
 ### Хвосты M0-03
 
-- [ ] JSDoc у `FixedLoopOptions.update`: `tick` — номер симулируемого тика, начиная с 0.
-- [ ] Комментарий в `loop.ts` у отбрасывания времени: допустимо только в одиночной игре, в мультиплеере клиент догоняет серверный тик (M2).
+- [x] JSDoc у `FixedLoopOptions.update`: `tick` — номер симулируемого тика, начиная с 0.
+- [x] Комментарий в `loop.ts` у отбрасывания времени: допустимо только в одиночной игре, в мультиплеере клиент догоняет серверный тик (M2).
 
 ## Критерии приёмки
 

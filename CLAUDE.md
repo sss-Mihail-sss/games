@@ -40,6 +40,8 @@ Use `bun check` to type check the project. It reads `tsconfig.json` and reports 
 
 ## Frontend
 
+**Exception: `apps/web` is a Next.js (App Router) app** running on Node — see `docs/ARCHITECTURE.md` ("Web: Next.js, а не Bun SPA"). Use `next dev` / `next build` there, keep game code client-only, and keep `mountGame` and platform code framework-free. Bun stays the package manager and test runner for `apps/web`. Everything below applies to all other frontends.
+
 Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully support React, CSS, Tailwind.
 
 Server:
