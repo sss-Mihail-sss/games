@@ -1,7 +1,7 @@
 import { test, expect, mock } from "bun:test";
 
-import { defineGame } from "./define-game.ts";
-import type { GameContext } from "../context/type.ts";
+import { defineGame } from "./module.ts";
+import type { GameContext } from "../context/index.ts";
 
 const element = {} as HTMLElement;
 const context = {} as GameContext;

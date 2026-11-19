@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { defineManifest } from "./define-manifest.ts";
+import { defineManifest } from "./manifest.ts";
 
 const base = { title: "Bridge", kind: "3d", thumbnail: "" } as const;
 
