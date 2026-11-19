@@ -1,0 +1,9 @@
+{
+  // The sim runs on the server too (M2): no DOM types here, so `document` or
+  // `window` in src/sim fails `bun run typecheck`. Imports are guarded by boundary.test.ts.
+  "extends": "../../../../tsconfig.base.json",
+  "include": ["."],
+  "compilerOptions": {
+    "lib": ["ESNext"]
+  }
+}
