@@ -31,19 +31,19 @@
 
 ### 3. Реестр игр
 
-- [x] `@repo/game-<game>/manifest` — статический импорт, `@repo/game-<game>/client` — `() => import(...)`. `GameId` выводится из манифестов.
+- [x] `@repo/game-<game>/manifest` — статический импорт в серверный каталог `games`, `@repo/game-<game>/client` — `() => import(...)` в клиентский `gameLoader`. `GameId` выводится из манифестов, клиент импортирует его только как тип.
 - [x] `preload(id)` — запускает `load()` заранее (для наведения на «Играть»), повторный вызов не грузит второй раз.
 
 ### 4. Страницы
 
 - [x] Язык в URL через root params: корневой layout — `app/[locale]/layout.tsx` с `<html lang={await locale()}>` (`import { locale } from "next/root-params"`) и `generateStaticParams` → `[{ locale: "ru" }]`. Неизвестный язык → `notFound()`.
 - [x] `/` → `/ru`: статический `redirects()` в `next.config.ts` (`permanent: false`). Выбор языка по cookie и `Accept-Language` — позже, в `proxy.ts`.
-- [ ] `app/[locale]/page.tsx` — каталог (серверный компонент, SSG): карточки из манифестов, превью через `next/image`.
-- [ ] `app/[locale]/play/[id]/page.tsx` — серверная оболочка: `generateStaticParams` из реестра, `generateMetadata` (title, description, Open Graph, `alternates.languages`), `notFound()` для неизвестного `id`. Внутри — клиентский `<GameHost>`, язык передаётся ему через props.
-- [ ] `app/[locale]/not-found.tsx`, кнопка «Назад в каталог» (`next/link`).
-- [ ] `app/sitemap.ts` из реестра, с URL для каждого языка.
-- [ ] `<GameHost>` (`"use client"`) — тонкая обёртка над `mountGame` в `useEffect`; ошибки загрузки и монтирования попадают в `error.tsx` (через бросок из state при рендере).
-- [ ] Ссылка «Играть» в каталоге вызывает `preload(id)` на `pointerenter` / `focus`.
+- [x] `app/[locale]/page.tsx` — каталог (серверный компонент, SSG): карточки из манифестов, превью через `next/image`.
+- [x] `app/[locale]/play/[id]/page.tsx` — серверная оболочка: `generateStaticParams` из каталога, `generateMetadata` (title, description, Open Graph, `alternates.languages`), `notFound()` для неизвестного `id`. Внутри — клиентский `<GameHost>`, язык передаётся ему через props.
+- [x] ~~`app/[locale]/not-found.tsx`~~ → `app/global-not-found.tsx` (`experimental.globalNotFound`), кнопка «Назад в каталог» (`next/link`). Корневой layout лежит в `[locale]`, поэтому 404 рендерится из корня `app/`, и сегментный `not-found.tsx` не срабатывает ни для `notFound()`, ни для неизвестных URL.
+- [x] `app/sitemap.ts` из каталога, с URL для каждого языка.
+- [x] `<GameHost>` (`"use client"`) — тонкая обёртка над `mountGame` в `useEffect`; ошибки загрузки и монтирования попадают в `error.tsx` (через бросок из state при рендере).
+- [x] Ссылка «Играть» в каталоге вызывает `preload(id)` на `pointerenter` / `focus`.
 
 ### 5. Игра-заглушка
 
@@ -57,14 +57,14 @@
 - `React.StrictMode` (в App Router включён по умолчанию): в dev на странице игры один `<canvas>`.
 - 20 переходов «каталог → игра → каталог» подряд: в консоли нет «Too many active WebGL contexts».
 - Тесты `mountGame`: обычный mount/unmount; cleanup до завершения `load`; cleanup до завершения `mount` (игра получает aborted `signal`, cleanup вызван один раз); ошибка `load` → `onError`; ошибка `mount` после cleanup → `onError` не вызван; StrictMode-сценарий mount → cleanup → mount оставляет ровно одну живую игру.
-- Lighthouse для `/ru` (Mobile, Slow 4G): LCP < 1,5 с, JS < 100 КБ gzip. Результат — в описании PR.
+- Lighthouse для `/ru` (Mobile, Slow 4G): LCP < 1,5 с, JS < 150 КБ gzip (около 130 КБ — сам Next и React, см. ARCHITECTURE.md; на M0-05 — 140 КБ). Результат — в описании PR.
 - `bun run typecheck`, `bun run test`, `bun lint`, `bun fmt --check` проходят.
 
 ## Подсказки
 
 - Порядок важен: спайк → `mountGame` → платформа → реестр → страницы. `mountGame` и платформа не зависят от Next, их можно писать и тестировать параллельно со спайком.
 - Граница сервер/клиент: всё, что трогает `window`, `localStorage`, `document` или игру, — только в `"use client"`-компонентах и только внутри `useEffect`. Серверные компоненты импортируют только манифесты.
-- Не используй `next/dynamic` для игры: модуль игры — не React-компонент. Ленивую загрузку делает `load()` из реестра внутри `mountGame`, и Next всё равно вынесет её в отдельный чанк.
+- Не используй `next/dynamic` для игры: модуль игры — не React-компонент. Ленивую загрузку делает `gameLoader.load()` внутри `mountGame`, и Next всё равно вынесет её в отдельный чанк.
 - `error.tsx` ловит только ошибки рендера. Ошибку из промиса (`load()` или `mount()`) положи в state и брось при следующем рендере.
 - В deps `useEffect` у `<GameHost>` — только игра. Если туда попадёт `context`, создаваемый на каждом рендере, игра будет перемонтироваться.
 - Рантайм — Bun: скрипты `web` запускают Next через `bun --bun`. Запускай `bun run dev` / `build` / `start`, а не `next …` напрямую — иначе Next стартует под Node.

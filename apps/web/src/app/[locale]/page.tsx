@@ -1,15 +1,34 @@
-import { manifest as bridge } from "@repo/game-bridge/manifest";
+import Image from "next/image";
 
-// Spike: proves that a server component can import workspace TS packages.
-// M0-05 replaces this with the real catalog built from the games registry.
-export default function CatalogPage() {
+import { games } from "../../games/index.ts";
+import { getLocale } from "../../locale/index.ts";
+import { playPath } from "../../site/index.ts";
+import { PlayLink } from "./play-link.tsx";
+
+export default async function CatalogPage() {
+  const locale = await getLocale();
+
   return (
     <main>
       <h1>Игры</h1>
-      <ul>
-        <li>
-          {bridge.title} ({bridge.kind})
-        </li>
+      <ul className="catalog">
+        {games.manifests.map((game, index) => (
+          <li key={game.id} className="card">
+            <Image
+              src={game.thumbnail}
+              alt=""
+              width={320}
+              height={180}
+              // The first card is the LCP candidate: load it eagerly.
+              preload={index === 0}
+            />
+            <h2>{game.title}</h2>
+            {game.description && <p>{game.description}</p>}
+            <PlayLink gameId={game.id} href={playPath(locale, game.id)}>
+              Играть
+            </PlayLink>
+          </li>
+        ))}
       </ul>
     </main>
   );

@@ -20,6 +20,12 @@ const nextConfig: NextConfig = {
   ],
   // Self-contained server for the Docker image (see docs/ARCHITECTURE.md).
   output: "standalone",
+  experimental: {
+    // Our root layout is app/[locale]/layout.tsx, so there is no layout for a
+    // segment-level not-found.tsx to render into: every 404 (unknown locale, unknown
+    // game, any unmatched URL) uses app/global-not-found.tsx instead.
+    globalNotFound: true,
+  },
 };
 
 export default nextConfig;

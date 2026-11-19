@@ -1,18 +1,19 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { locale } from "next/root-params";
 import type { ReactNode } from "react";
 
-import { isLocale, localeParams } from "../../locale/index.ts";
+import { getLocale, localeParams } from "../../locale/index.ts";
+import { siteName, siteUrl } from "../../site/index.ts";
 
 import "../globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: siteUrl,
   title: {
-    default: "games.secrii.dev",
-    template: "%s · games.secrii.dev",
+    default: siteName,
+    template: `%s · ${siteName}`,
   },
   description: "Браузерные 2D- и 3D-игры.",
+  openGraph: { siteName, type: "website" },
 };
 
 // Only the published locales exist; anything else is a 404 without rendering.
@@ -24,11 +25,9 @@ export default async function RootLayout({
 }: {
   children: ReactNode;
 }) {
-  const current = await locale();
-  // Second line of defence: dynamicParams is unavailable with Cache Components.
-  if (!isLocale(current)) {
-    notFound();
-  }
+  // getLocale() also 404s on an unknown locale: the second line of defence,
+  // because dynamicParams is unavailable with Cache Components.
+  const current = await getLocale();
 
   return (
     <html lang={current}>
