@@ -3,9 +3,14 @@
   "type": "module",
   "private": true,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./manifest": "./src/manifest/index.ts"
   },
   "scripts": {
     "typecheck": "bun check"
+  },
+  "dependencies": {
+    "zod": "catalog:",
+    "@repo/utils": "workspace:*"
   }
 }
