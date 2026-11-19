@@ -1,20 +1,13 @@
 import { manifest as bridge } from "@repo/game-bridge/manifest";
 
-import { createRegistry } from "./registry.ts";
+import { createCatalog } from "./catalog.ts";
 import type { GameIdOf } from "./type.ts";
 
 /**
- * All games on the site. Manifests are imported statically (they are tiny and the
- * catalog needs them on the server); game code is only reachable through `load`,
- * so the bundler puts each game into its own chunk.
+ * All games on the site, in catalog order. Adding a game = its manifest here and
+ * its client in game-loader/loaders.ts (the compiler insists on both).
  */
-export const games = createRegistry([
-  {
-    manifest: bridge,
-    load: () =>
-      import("@repo/game-bridge/client").then((module) => module.default),
-  },
-]);
+export const games = createCatalog([bridge]);
 
 /** `"bridge" | …` — derived from the manifests, never maintained by hand. */
 export type GameId = GameIdOf<typeof games>;
