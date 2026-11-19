@@ -14,19 +14,27 @@ export function mountGame({
 
   async function run() {
     const game = await load();
-    if (signal.aborted) return; // ушли со страницы, пока грузился чанк
+    if (signal.aborted) {
+      return;
+    } // ушли со страницы, пока грузился чанк
 
     unmount = await game.mount(element, { ...context, signal });
-    if (signal.aborted) unmount(); // ушли, пока игра монтировалась
+    if (signal.aborted) {
+      unmount();
+    } // ушли, пока игра монтировалась
   }
 
   run().catch((error: unknown) => {
-    if (!signal.aborted) onError(error);
+    if (!signal.aborted) {
+      onError(error);
+    }
   });
 
   return () => {
     // Idempotent on our side too: GameModule may come from anywhere, not only defineGame.
-    if (signal.aborted) return;
+    if (signal.aborted) {
+      return;
+    }
     controller.abort();
     unmount?.();
   };

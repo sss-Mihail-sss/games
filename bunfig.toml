@@ -4,5 +4,6 @@ typeAware = true # also run the rules that need types
 [lint.rules]
 "typescript/consistent-type-exports" = "error"
 "typescript/no-unused-vars" = "error"
+"curly" = ["error", "all"] # no one-line `if (x) y();`: always use braces
 
 [fmt]

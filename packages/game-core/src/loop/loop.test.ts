@@ -33,7 +33,9 @@ function createFakeClock() {
   }
 
   function frames(durations: number[]) {
-    for (const ms of durations) frame(ms);
+    for (const ms of durations) {
+      frame(ms);
+    }
   }
 
   return { clock, frame, frames };
@@ -43,7 +45,9 @@ function createFakeClock() {
 function slices(frameMs: number, totalMs = 1000): number[] {
   const result = Array<number>(Math.floor(totalMs / frameMs)).fill(frameMs);
   const rest = totalMs - result.length * frameMs;
-  if (rest > 0) result.push(rest);
+  if (rest > 0) {
+    result.push(rest);
+  }
   return result;
 }
 
@@ -183,7 +187,9 @@ describe("createFixedLoop", () => {
       const loop = createFixedLoop({
         tickRate: TICK_RATE,
         update: (tick) => {
-          if (tick === 1) loop.stop();
+          if (tick === 1) {
+            loop.stop();
+          }
         },
         render,
         clock: fake.clock,

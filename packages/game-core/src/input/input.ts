@@ -28,7 +28,9 @@ export function createInput<const A extends readonly string[]>({
 
   function heldMask(): number {
     let mask = 0;
-    for (const source of down) mask |= sourceMasks.get(source) ?? 0;
+    for (const source of down) {
+      mask |= sourceMasks.get(source) ?? 0;
+    }
     return mask >>> 0;
   }
 
@@ -44,10 +46,14 @@ export function createInput<const A extends readonly string[]>({
     "keydown",
     (event) => {
       const { code, repeat } = event as KeyboardEvent;
-      if (repeat) return; // автоповтор — не нажатие
+      if (repeat) {
+        return;
+      } // автоповтор — не нажатие
 
       const source = `Key:${code}`; // code, не key: раскладка не важна
-      if (!sourceMasks.has(source)) return;
+      if (!sourceMasks.has(source)) {
+        return;
+      }
       event.preventDefault(); // только для своих клавиш
 
       const before = heldMask();
@@ -61,7 +67,9 @@ export function createInput<const A extends readonly string[]>({
     "keyup",
     (event) => {
       const source = `Key:${(event as KeyboardEvent).code}`;
-      if (!down.has(source)) return;
+      if (!down.has(source)) {
+        return;
+      }
 
       const before = heldMask();
       down.delete(source);
