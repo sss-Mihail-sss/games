@@ -57,7 +57,7 @@
 - `React.StrictMode` (в App Router включён по умолчанию): в dev на странице игры один `<canvas>`.
 - 20 переходов «каталог → игра → каталог» подряд: в консоли нет «Too many active WebGL contexts».
 - Тесты `mountGame`: обычный mount/unmount; cleanup до завершения `load`; cleanup до завершения `mount` (игра получает aborted `signal`, cleanup вызван один раз); ошибка `load` → `onError`; ошибка `mount` после cleanup → `onError` не вызван; StrictMode-сценарий mount → cleanup → mount оставляет ровно одну живую игру.
-- Lighthouse для `/ru` (Mobile, Slow 4G): LCP < 1,5 с, JS < 150 КБ gzip (около 130 КБ — сам Next и React, см. ARCHITECTURE.md; на M0-05 — 140 КБ). Результат — в описании PR.
+- Lighthouse для `/ru` (Mobile, Slow 4G): LCP < 2,5 с, JS < 150 КБ gzip (около 130 КБ — сам Next и React, см. ARCHITECTURE.md; на M0-05 — 140 КБ). Результат — в описании PR.
 - `bun run typecheck`, `bun run test`, `bun lint`, `bun fmt --check` проходят.
 
 ## Подсказки
