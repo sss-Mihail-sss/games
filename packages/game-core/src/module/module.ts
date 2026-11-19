@@ -14,7 +14,9 @@ export function defineGame<const M extends GameManifest>(game: {
       let unmounted = false;
 
       const once: Unmount = () => {
-        if (unmounted) return;
+        if (unmounted) {
+          return;
+        }
         unmounted = true;
         unmount();
       };
