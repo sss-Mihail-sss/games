@@ -6,14 +6,14 @@
 
 ## Что сделать
 
-- [ ] `GameManifest`: `id`, `title`, `kind: "2d" | "3d"`, `description`, `thumbnail`, `multiplayer?: { minPlayers; maxPlayers; modes: string[] }`.
-- [ ] `GameContext`: `user` (гость или аккаунт), `settings` (громкость, качество), `signal: AbortSignal`, `submitScore()` (пока без реализации, только сигнатура), `log` с префиксом игры.
-- [ ] `GameModule`: `{ manifest; mount(el, ctx): Promise<Unmount> }`.
-- [ ] `defineManifest()` — проверяет манифест схемой и возвращает его с сохранёнными литеральными типами: `<const M extends GameManifest>(manifest: M): M`.
-- [ ] `defineGame()` — принимает уже определённый манифест и `mount`, возвращает `GameModule` с обёрнутым `mount` (идемпотентный `Unmount`). Валидацию манифеста перенести из `defineGame` в `defineManifest`.
-- [ ] `Transport` — только интерфейс, без реализаций: `send(type, payload)`, `sendBytes(data)`, `on(type, handler)`, `onBytes(handler)`, `close()`, `state: "connecting" | "open" | "closed"`. Реализации появятся в M2.
-- [ ] Тест: фейковая игра через `defineGame` монтируется в фейковый элемент, а unmount вызывает cleanup ровно один раз.
-- [ ] Тесты на `defineManifest`: корректный манифест проходит, неверный слаг и `minPlayers > maxPlayers` бросают ошибку с понятным сообщением. Тип-тест: `id` манифеста, объявленного в отдельной переменной через `defineManifest`, имеет литеральный тип.
+- [x] `GameManifest`: `id`, `title`, `kind: "2d" | "3d"`, `description`, `thumbnail`, `multiplayer?: { minPlayers; maxPlayers; modes: string[] }`.
+- [x] `GameContext`: `user` (гость или аккаунт), `settings` (громкость, качество), `signal: AbortSignal`, `submitScore()` (пока без реализации, только сигнатура), `log` с префиксом игры.
+- [x] `GameModule`: `{ manifest; mount(el, ctx): Promise<Unmount> }`.
+- [x] `defineManifest()` — проверяет манифест схемой и возвращает его с сохранёнными литеральными типами: `<const M extends GameManifest>(manifest: M): M`.
+- [x] `defineGame()` — принимает уже определённый манифест и `mount`, возвращает `GameModule` с обёрнутым `mount` (идемпотентный `Unmount`). Валидацию манифеста перенести из `defineGame` в `defineManifest`.
+- [x] `Transport` — только интерфейс, без реализаций: `send(type, payload)`, `sendBytes(data)`, `on(type, handler)`, `onBytes(handler)`, `close()`, `state: "connecting" | "open" | "closed"`. Реализации появятся в M2.
+- [x] Тест: фейковая игра через `defineGame` монтируется в фейковый элемент, а unmount вызывает cleanup ровно один раз.
+- [x] Тесты на `defineManifest`: корректный манифест проходит, неверный слаг и `minPlayers > maxPlayers` бросают ошибку с понятным сообщением. Тип-тест: `id` манифеста, объявленного в отдельной переменной через `defineManifest`, имеет литеральный тип.
 
 ## Критерии приёмки
 
