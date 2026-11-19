@@ -1,5 +1,5 @@
 import type { GameManifest } from "../manifest/index.ts";
-import type { GameModule, Unmount } from "../module/index.ts";
+import type { GameModule, Unmount } from "./type.ts";
 
 type Mount = GameModule["mount"];
 
