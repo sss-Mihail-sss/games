@@ -84,15 +84,31 @@ Workspaces: `["apps/*", "packages/*", "games/*"]`.
 
 ## Контракт игры
 
-Каждая игра — отдельный пакет, который экспортирует манифест и `GameModule`:
+Каждая игра — отдельный пакет. Контракт состоит из двух сущностей:
+
+- **`GameManifest`** — паспорт игры: `id`, `title`, `kind`, `thumbnail`, параметры мультиплеера. Это лёгкие статические данные без кода. Оболочка импортирует манифесты всех игр сразу, для каталога.
+- **`GameModule`** — сама игра: манифест плюс `mount()`, за которым стоят движок, физика и ассеты. Оболочка грузит модуль лениво, только при открытии игры.
 
 ```ts
 interface GameModule {
   manifest: GameManifest;
-  mount(el: HTMLElement, ctx: GameContext): Promise<() => void>; // возвращает unmount
+  mount(el: HTMLElement, ctx: GameContext): Promise<Unmount>;
 }
 ```
 
+Оба создаются через хелперы из `@repo/game-core`:
+
+```ts
+// games/bridge/src/manifest.ts — вход ./manifest
+export const manifest = defineManifest({ id: "bridge", title: "Bridge", kind: "3d", thumbnail: "…" });
+
+// games/bridge/src/client/index.ts — вход ./client
+import { manifest } from "../manifest.ts";
+export default defineGame({ manifest, mount: async (el, ctx) => { … } });
+```
+
+- `defineManifest` проверяет манифест схемой в момент импорта (и в каталоге, и в игре) и сохраняет литеральные типы (`id: "bridge"`, а не `string`).
+- `defineGame` только оборачивает `mount`, чтобы возвращённый `Unmount` был идемпотентным.
 - Оболочка импортирует только `@repo/game-<game>/manifest` (статически, для каталога), а `@repo/game-<game>/client` грузит лениво через `import()`. Бандл режется на чанки, и Three.js не грузится ни на странице каталога, ни для 2D-игр.
 - `unmount` обязан освободить всё: `renderer.dispose()`, `forceContextLoss()`, слушатели, Worker'ы, соединения. Иначе при переходах между играми утекают WebGL-контексты.
 - `GameContext` даёт игре пользователя, настройки, `submitScore` и фабрику `Transport`.

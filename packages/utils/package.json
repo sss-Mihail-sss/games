@@ -1,0 +1,11 @@
+{
+  "name": "@repo/utils",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "bun check"
+  }
+}

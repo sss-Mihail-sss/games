@@ -10,17 +10,26 @@
 
 ## Что сделать
 
-- [ ] `git init`, первый коммит с текущим состоянием репозитория в ветку `main`. От этого коммита начнётся ревью.
-- [ ] Имена пакетов: библиотеки — `@repo/<name>` (`@repo/game-core`, `@repo/ui`, `@repo/game-bridge` и т. д.), приложения — `web`, `api`, `game-server` (на эти имена ссылаются корневые скрипты).
-- [ ] Workspaces: `["apps/*", "packages/*", "games/*"]`. Удалить пустую `packages/games/`.
-- [ ] Связи между пакетами только через `"workspace:*"`.
-- [ ] `exports` у библиотек указывает прямо на TS-исходники, без шага сборки: `"exports": { ".": "./src/index.ts" }`.
-- [ ] `tsconfig.base.json` в корне, пакеты делают `extends`. Удалить скопированные tsconfig'и из шаблона.
-- [ ] DOM-типы (`"lib": ["ESNext", "DOM", "DOM.Iterable"]`) только у клиентских пакетов. Пакеты, которые работают на сервере (`game-protocol`, `contracts`, `db`, `auth`, `apps/api`, `apps/game-server`), DOM видеть не должны.
-- [ ] Корневые скрипты: `dev`, `typecheck` (`bun check`), `test` (`bun test`). Скрипт `dev` не должен падать из-за пакетов без своего `dev`.
-- [ ] Корневой README: что это за проект, как запустить, ссылка на `docs/`. Шаблонные README из пакетов удалить или переписать.
-- [ ] Решить судьбу `@ui-sdk/core` и `@ui-sdk/react` в `packages/ui`: это бета-пакеты, и я их не знаю. Либо обоснуй выбор в README пакета, либо убери.
-- [ ] `.gitignore`: `node_modules`, `dist`, `.env*` (кроме `.env.example`), `.DS_Store`. Решить, что делать с `.idea/`.
+- [x] `git init`, первый коммит с текущим состоянием репозитория в ветку `main`. От этого коммита начнётся ревью.
+- [x] Имена пакетов: библиотеки — `@repo/<name>` (`@repo/game-core`, `@repo/ui`, `@repo/game-bridge` и т. д.), приложения — `web`, `api`, `game-server` (на эти имена ссылаются корневые скрипты).
+- [x] Workspaces: `["apps/*", "packages/*", "games/*"]`. Удалить пустую `packages/games/`.
+- [x] Связи между пакетами только через `"workspace:*"`.
+- [x] `exports` у библиотек указывает прямо на TS-исходники, без шага сборки: `"exports": { ".": "./src/index.ts" }`.
+- [x] `tsconfig.base.json` в корне, пакеты делают `extends`. Удалить скопированные tsconfig'и из шаблона.
+- [x] DOM-типы (`"lib": ["ESNext", "DOM", "DOM.Iterable"]`) только у клиентских пакетов. Пакеты, которые работают на сервере (`game-protocol`, `contracts`, `db`, `auth`, `apps/api`, `apps/game-server`), DOM видеть не должны.
+- [x] Корневые скрипты: `dev`, `typecheck` (`bun check`), `test` (`bun test`). Скрипт `dev` не должен падать из-за пакетов без своего `dev`.
+- [ ] Корневой README: что это за проект, как запустить, ссылка на `docs/`. Шаблонные README из пакетов удалить или переписать. → перенесено в «Хвосты»
+- [x] Решить судьбу `@ui-sdk/core` и `@ui-sdk/react` в `packages/ui`: это бета-пакеты, и я их не знаю. Либо обоснуй выбор в README пакета, либо убери.
+- [ ] `.gitignore`: `node_modules`, `dist`, `.env*` (кроме `.env.example`), `.DS_Store`. Решить, что делать с `.idea/`. → перенесено в «Хвосты»
+
+## Хвосты (принято с переносом)
+
+Задача принята 2026-11-18: все критерии приёмки выполнены. Оставшееся — косметика. Сделать одним коммитом `chore: repo hygiene leftovers` до начала M0-02.
+
+- [ ] Удалить шаблонный `apps/game-server/README.md` и вложенные `.gitignore` в `apps/game-server` и `packages/ui`.
+- [ ] `.gitignore`: убрать дубли `.env…` (оставить `.env*` + `!.env.example`), исправить опечатки шаблона `_.log` → `*.log` и `report.[0-9]_…` → `report.*.json`.
+- [ ] Корневой `package.json`: убрать `"module": "index.ts"`, перенести `typescript` из `peerDependencies` в `devDependencies`.
+- [ ] `packages/ui`: закрепить точные версии `@ui-sdk/core` и `@ui-sdk/react` (без `^`), как записано в README пакета.
 
 ## Критерии приёмки
 
