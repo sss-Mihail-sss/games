@@ -1,7 +1,8 @@
+/** Properties, not methods: `clock.now` may be passed around without binding. */
 export interface Clock {
-  now(): number;
-  requestFrame(callback: (time: number) => void): number;
-  cancelFrame(id: number): void;
+  now: () => number;
+  requestFrame: (callback: (time: number) => void) => number;
+  cancelFrame: (id: number) => void;
 }
 
 export interface FixedLoopOptions {
