@@ -218,7 +218,7 @@ games/bridge/
 
 Входа на `./sim` нет намеренно: симуляцию используют только `client` и `server` изнутри пакета.
 
-**Открытый вопрос (решаем в M1):** как обеспечить, что `sim/` не видит DOM. Вариант А — один пакет на игру и отдельные tsconfig для `src/sim` (без DOM) и `src/client` (с DOM). Вариант Б — три пакета на игру (`games/<game>/{sim,client,server}`): граница жёстче, но шаблонного кода втрое больше. Сейчас склоняемся к варианту А.
+**Граница `sim/` (решено в M0-06, вариант А):** один пакет на игру, у `src/sim` свой `tsconfig.json` без DOM (подключён в `references` корневого `tsconfig.json`), поэтому `document` или `window` в `sim` роняют `bun run typecheck`. Импорты сторожит `src/sim/boundary.test.ts`: разрешены только свои файлы и `@repo/game-protocol`, а `three`, `../client` и `@repo/game-core` (DOM-ввод, цикл на `requestAnimationFrame`) роняют `bun test`. Вариант Б (три пакета на игру) отложен: граница жёстче, но шаблонного кода втрое больше.
 
 ### Transport
 
