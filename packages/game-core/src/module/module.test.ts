@@ -11,7 +11,7 @@ test("unmount is idempotent", async () => {
   const cleanup = mock(() => {});
   const game = defineGame({
     manifest: { ...base, id: "bridge" },
-    mount: async () => cleanup,
+    mount: () => Promise.resolve(cleanup),
   });
 
   const unmount = await game.mount(element, context);

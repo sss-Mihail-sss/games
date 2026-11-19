@@ -17,6 +17,8 @@
     }
   },
   "scripts": {
+    "lint": "bun lint",
+    "fmt": "bun fmt",
     "dev": "bun run --parallel --filter '*' dev",
     "dev:web": "bun run --filter web dev",
     "dev:api": "bun run --filter api dev",

@@ -25,6 +25,9 @@ export function createFixedLoop({
     let elapsedTicks = ((time - origin) * tickRate) / 1000 + tickOffset;
     let steps = Math.floor(elapsedTicks) - tick;
 
+    // Спираль смерти: после долгой паузы не догоняем, а отбрасываем лишнее время.
+    // Допустимо только в одиночной игре. В мультиплеере (M2) клиент не может
+    // «забыть» время — сервер продолжает тикать, клиент должен догнать серверный тик.
     if (steps > maxStepsPerFrame) {
       const dropped = steps - maxStepsPerFrame;
       tickOffset -= dropped;

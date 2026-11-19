@@ -18,3 +18,7 @@ export type { User } from "./user/index.ts";
 // Loop
 export { createFixedLoop } from "./loop/index.ts";
 export type { Clock, FixedLoop, FixedLoopOptions } from "./loop/index.ts";
+
+// Input
+export { createInput } from "./input/index.ts";
+export type { Bindings, Input, InputOptions } from "./input/index.ts";
