@@ -3,13 +3,23 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun --hot src/index.ts",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "typecheck": "bun check"
   },
   "dependencies": {
-    "@repo/ui": "workspace:*",
-    "@repo/game-core": "workspace:*",
     "@repo/contracts": "workspace:*",
-    "@repo/game-bridge": "workspace:*"
+    "@repo/game-bridge": "workspace:*",
+    "@repo/game-core": "workspace:*",
+    "@repo/ui": "workspace:*",
+    "next": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:"
   }
 }

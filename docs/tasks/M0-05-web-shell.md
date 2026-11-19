@@ -10,10 +10,10 @@
 
 ### 0. Спайк: Next собирает наши пакеты (сначала, до остального кода)
 
-- [ ] `apps/web` на Next.js (App Router, TypeScript, без ESLint — у нас `bun lint`), React из каталога.
-- [ ] `next.config.ts`: `transpilePackages` для всех используемых `@repo/*`, `output: "standalone"`.
-- [ ] Страница-заглушка импортирует что-нибудь из `@repo/game-core` и `@repo/game-bridge/manifest`. `next dev` и `next build` проходят: проверяем, что Next понимает TS-исходники из workspace и импорты с расширением `.ts`.
-- [ ] `bun run typecheck` проходит вместе с tsconfig от Next (`next-env.d.ts`, plugin `next`).
+- [x] `apps/web` на Next.js (App Router, TypeScript, без ESLint — у нас `bun lint`), React из каталога.
+- [x] `next.config.ts`: `transpilePackages` для всех используемых `@repo/*`, `output: "standalone"`.
+- [x] Страница-заглушка импортирует что-нибудь из `@repo/game-core` и `@repo/game-bridge/manifest`. `next dev` и `next build` проходят: проверяем, что Next понимает TS-исходники из workspace и импорты с расширением `.ts`.
+- [x] `bun run typecheck` проходит вместе с tsconfig от Next (`next-env.d.ts`, plugin `next`).
 
 Если спайк не проходит — стоп, обсуждаем до продолжения.
 
