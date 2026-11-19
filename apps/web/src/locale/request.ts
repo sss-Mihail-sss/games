@@ -1,3 +1,8 @@
+// Server-only by intent, not just because next/root-params happens to be:
+// a value import of this module (or of locale/index.ts) from a Client Component
+// fails the build with "'server-only' cannot be imported from a Client Component".
+import "server-only";
+
 import { notFound } from "next/navigation";
 import { locale } from "next/root-params";
 
