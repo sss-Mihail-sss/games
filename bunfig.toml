@@ -1,0 +1,8 @@
+[lint]
+typeAware = true # also run the rules that need types
+
+[lint.rules]
+"typescript/consistent-type-exports" = "error"
+"typescript/no-unused-vars" = "error"
+
+[fmt]
