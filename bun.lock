@@ -60,7 +60,7 @@
     "packages/game-core": {
       "name": "@repo/game-core",
       "dependencies": {
-        "@repo/utils": "workspace:",
+        "@repo/utils": "workspace:*",
         "zod": "catalog:",
       },
     },

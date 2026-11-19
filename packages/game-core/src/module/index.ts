@@ -1,1 +1,1 @@
-export type { GameModule } from "./schema.ts";
+export type { GameModule, Unmount } from "./type.ts";
