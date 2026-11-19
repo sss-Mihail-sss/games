@@ -19,8 +19,11 @@ export default async function CatalogPage() {
               alt=""
               width={320}
               height={180}
-              // The first card is the LCP candidate: load it eagerly.
-              preload={index === 0}
+              // The first card is the LCP element: fetch it right away and ahead of
+              // the scripts. No `preload`: the <img> is in the HTML from the start,
+              // and a preload link alone is fetched at low priority.
+              loading={index === 0 ? "eager" : "lazy"}
+              fetchPriority={index === 0 ? "high" : "auto"}
             />
             <h2>{game.title}</h2>
             {game.description && <p>{game.description}</p>}
