@@ -9,8 +9,11 @@ export interface KeyValueStorage {
 /** Всё, что оболочка даёт игре, кроме `signal` (его создаёт mountGame). */
 export type PlatformContext = Omit<GameContext, "signal">;
 
-export type SettingsPatch = Partial<Omit<PlatformSettings, "volume">> & {
+export type SettingsPatch = Partial<
+  Omit<PlatformSettings, "volume" | "mouse">
+> & {
   volume?: Partial<PlatformSettings["volume"]>;
+  mouse?: Partial<PlatformSettings["mouse"]>;
 };
 
 /** То, что видит игра (`current`, `subscribe`), плюс `set` — только для оболочки. */

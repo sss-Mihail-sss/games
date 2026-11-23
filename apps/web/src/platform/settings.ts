@@ -10,6 +10,7 @@ export const DEFAULT_SETTINGS: Readonly<PlatformSettings> = Object.freeze({
   quality: "high",
   reducedMotion: false,
   locale: "ru",
+  mouse: Object.freeze({ sensitivity: 1, invertY: false }),
 });
 
 const volume = (fallback: number) => z.number().min(0).max(1).catch(fallback);
@@ -27,8 +28,22 @@ const storedSettings = z
     quality: z.enum(["low", "medium", "high"]).catch(DEFAULT_SETTINGS.quality),
     reducedMotion: z.boolean().catch(DEFAULT_SETTINGS.reducedMotion),
     locale: z.enum(["ru", "en"]).catch(DEFAULT_SETTINGS.locale),
+    mouse: z
+      .object({
+        sensitivity: z
+          .number()
+          .min(0.1)
+          .max(5)
+          .catch(DEFAULT_SETTINGS.mouse.sensitivity),
+        invertY: z.boolean().catch(DEFAULT_SETTINGS.mouse.invertY),
+      })
+      .catch({ ...DEFAULT_SETTINGS.mouse }),
   })
-  .catch({ ...DEFAULT_SETTINGS, volume: { ...DEFAULT_SETTINGS.volume } });
+  .catch({
+    ...DEFAULT_SETTINGS,
+    volume: { ...DEFAULT_SETTINGS.volume },
+    mouse: { ...DEFAULT_SETTINGS.mouse },
+  });
 
 function load(storage: KeyValueStorage): PlatformSettings {
   const raw = storage.get(SETTINGS_KEY);
@@ -60,6 +75,7 @@ export function createSettingsStore(storage: KeyValueStorage): SettingsStore {
         ...current,
         ...patch,
         volume: { ...current.volume, ...patch.volume },
+        mouse: { ...current.mouse, ...patch.mouse },
       };
       storage.set(SETTINGS_KEY, JSON.stringify(current));
       for (const listener of listeners) {
