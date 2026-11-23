@@ -20,13 +20,15 @@ export function clampPitch(pitch: number): number {
 
 /**
  * The aim ray for feet at `at`, looking along `yaw` (0 = −Z, positive turns
- * left) and `pitch` (positive = up). Pure: the client's camera uses the very
- * same function, so the crosshair and the sim agree exactly.
+ * left) and `pitch` (positive = up). `heightScale` lowers the shoulder while
+ * crouching. Pure: the client's camera uses the very same function, so the
+ * crosshair and the sim agree exactly.
  */
 export function aimRay(
   at: Vec3,
   yaw: number,
   pitch: number,
+  heightScale = 1,
 ): { origin: Vec3; direction: Vec3 } {
   const sin = Math.sin(yaw);
   const cos = Math.cos(yaw);
@@ -35,7 +37,7 @@ export function aimRay(
     origin: {
       // right = (cos, 0, −sin), as in walking.
       x: at.x + cos * SHOULDER.side,
-      y: at.y + SHOULDER.height,
+      y: at.y + SHOULDER.height * heightScale,
       z: at.z - sin * SHOULDER.side,
     },
     // forward = (−sin, 0, −cos), tilted up by pitch.

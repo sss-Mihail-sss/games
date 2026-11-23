@@ -259,6 +259,8 @@ describe("aim", () => {
  * A scripted session: walk to the gap, fall, respawn, walk sideways, turn the
  * camera. Its hash must not change unless the game's physics deliberately does.
  */
+const MODES = ["walk", "sprint", "crouch", "sneak", "air"];
+
 function scriptedSession(sim: Sim): string {
   const states: number[] = [];
   const record = (state: SimState) =>
@@ -277,16 +279,28 @@ function scriptedSession(sim: Sim): string {
       state.aim.direction.y,
       state.aim.direction.z,
       state.aim.hit?.distance ?? -1,
+      MODES.indexOf(state.avatar.mode),
+      Number(state.avatar.crouched),
+      state.avatar.speed,
     );
-  const script: [Action[], number, number, number][] = [
-    [[], 0, 0, 0.5],
-    [["forward"], TOWARDS_GAP, -0.3, 4],
-    [["right"], TOWARDS_GAP, 0.4, 3],
-    [["forward", "left"], 0.3, -0.9, 2],
+  // [held, yaw, pitch, seconds, jump on the first tick of the segment]
+  const script: [Action[], number, number, number, boolean][] = [
+    [[], 0, 0, 0.5, false],
+    [["forward"], TOWARDS_GAP, -0.3, 4, false], // into the gap, respawn
+    [["right"], TOWARDS_GAP, 0.4, 3, false],
+    [["forward", "left"], 0.3, -0.9, 2, false],
+    [["forward", "sprint"], 0, 0, 1, true], // sprint jump
+    [["back", "crouch"], 0, 0.2, 1, false],
+    [["forward", "sneak"], TOWARDS_GAP, 0, 6, false], // sneak to the edge
+    [["right", "sneak"], TOWARDS_GAP, 0, 1, false], // along it
+    [[], 0, 0, 1, true],
   ];
-  for (const [held, yaw, pitch, seconds] of script) {
+  for (const [held, yaw, pitch, seconds, jump] of script) {
     for (let i = 0; i < seconds * TICK_RATE; i++) {
-      sim.step(frame(held, yaw, pitch));
+      const input = frame(held, yaw, pitch);
+      sim.step(
+        jump && i === 0 ? { ...input, pressed: actions.bit("jump") } : input,
+      );
       record(sim.state());
     }
   }
@@ -295,10 +309,12 @@ function scriptedSession(sim: Sim): string {
 
 describe("determinism", () => {
   /**
-   * Recorded on macOS arm64; CI checks it on Linux x64 (see M1-01). Changed in
-   * M1-03 from f81faa93: the session now includes pitch and the aim ray.
+   * Recorded on macOS arm64; CI checks it on Linux x64 (see M1-01).
+   * M1-03 (f81faa93 → 8012b949): the session gained pitch and the aim ray.
+   * M1-09 (→ aa2c8c63): jumps, sprint, crouch and sneak in the script, mode,
+   * crouch and speed in the record, and air momentum changed falling.
    */
-  const GOLDEN = "8012b949";
+  const GOLDEN = "aa2c8c63";
 
   test("a scripted session matches the golden hash", () => {
     const sim = createSim(R);
