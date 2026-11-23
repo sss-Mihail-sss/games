@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 
-import RAPIER from "@dimforge/rapier3d-deterministic-compat";
-
+import { loadPhysics, physicsMemoryBytes } from "../physics.ts";
+import type { Rapier } from "../physics.ts";
 import { buildWorld, runScenario, worldHash } from "./scenario.ts";
 
 /**
@@ -21,34 +21,13 @@ const RUNS = [
   ["1200 steps at 1/60", 1200, 1 / 60],
 ] as const;
 
-/** Rapier's WASM memory, caught when its module is instantiated. */
-let memory: WebAssembly.Memory | undefined;
+let R: Rapier;
 
 beforeAll(async () => {
-  const instantiate = WebAssembly.instantiate.bind(WebAssembly);
-  WebAssembly.instantiate = (async (
-    ...args: Parameters<typeof instantiate>
-  ) => {
-    // From a Module it resolves to an Instance, from bytes to { module, instance }.
-    const result = (await instantiate(...args)) as
-      WebAssembly.Instance | WebAssembly.WebAssemblyInstantiatedSource;
-    const instance =
-      result instanceof WebAssembly.Instance ? result : result.instance;
-    const wasmMemory = instance.exports["memory"];
-    if (wasmMemory instanceof WebAssembly.Memory) {
-      memory = wasmMemory;
-    }
-    return result;
-  }) as typeof WebAssembly.instantiate;
-  try {
-    await RAPIER.init();
-  } finally {
-    WebAssembly.instantiate = instantiate;
-  }
+  R = await loadPhysics();
 });
 
 describe("scenario", () => {
-  const R = RAPIER;
   test.each(RUNS)("%s matches the golden hash", (name, steps, dt) => {
     expect(runScenario(R, { steps, dt }).hash).toBe(GOLDEN[name]);
   });
@@ -83,7 +62,7 @@ describe("scenario", () => {
 
 describe("WASM memory", () => {
   const cycle = () => {
-    const { world } = buildWorld(RAPIER, 1 / 30);
+    const { world } = buildWorld(R, 1 / 30);
     for (let i = 0; i < 60; i++) {
       world.step();
     }
@@ -91,13 +70,13 @@ describe("WASM memory", () => {
   };
 
   test("20 build/free cycles don't grow it", () => {
-    expect(memory).toBeInstanceOf(WebAssembly.Memory);
     cycle(); // warm-up: the first world grows the heap once
-    const before = memory!.buffer.byteLength;
+    const before = physicsMemoryBytes();
+    expect(before).toBeGreaterThan(0);
     for (let n = 0; n < 20; n++) {
       cycle();
     }
     // Without world.free() this grows ~0.5 MB per world (measured in M1-01).
-    expect(memory!.buffer.byteLength).toBe(before);
+    expect(physicsMemoryBytes()).toBe(before);
   });
 });

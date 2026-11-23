@@ -1,18 +1,13 @@
 // M1-01: one deterministic world, run the same way in Bun, the browser and CI.
 // Kept after the spike as a regression test of cross-platform determinism.
 // No DOM, no three: it lives in sim and must run on the server too.
-import type RAPIER from "@dimforge/rapier3d-deterministic-compat";
-
-import { LEVEL } from "../sim.ts";
-
-/** The module as `import RAPIER from …` gives it (after `await RAPIER.init()`). */
-export type Rapier = typeof RAPIER;
-type World = InstanceType<Rapier["World"]>;
+import { hashNumbers } from "../hash.ts";
+import { buildLevel } from "../level.ts";
+import type { Rapier, World } from "../physics.ts";
 
 export const PLANKS = 50;
 export const JOINTS = 100;
 const PLANK = { halfLength: 1.5, halfThickness: 0.025, halfWidth: 0.15 };
-const BANK_DEPTH = 4;
 
 export interface ScenarioWorld {
   world: World;
@@ -29,23 +24,7 @@ export function buildWorld(R: Rapier, dt: number): ScenarioWorld {
   const world = new R.World({ x: 0, y: -9.81, z: 0 });
   world.timestep = dt;
 
-  for (const side of [-1, 1]) {
-    const bank = world.createRigidBody(
-      R.RigidBodyDesc.fixed().setTranslation(
-        side * (LEVEL.gap / 2 + LEVEL.bankLength / 2),
-        -BANK_DEPTH / 2,
-        0,
-      ),
-    );
-    world.createCollider(
-      R.ColliderDesc.cuboid(
-        LEVEL.bankLength / 2,
-        BANK_DEPTH / 2,
-        LEVEL.width / 2,
-      ),
-      bank,
-    );
-  }
+  buildLevel(world, R);
 
   const planks: number[] = [];
   for (let i = 0; i < PLANKS; i++) {
@@ -122,11 +101,7 @@ export function worldHash({ world, planks }: ScenarioWorld): string {
     const r = body.rotation();
     values.set([t.x, t.y, t.z, r.x, r.y, r.z, r.w], i * 7);
   });
-  let hash = 0x811c9dc5;
-  for (const byte of new Uint8Array(values.buffer)) {
-    hash = Math.imul(hash ^ byte, 0x01000193) >>> 0;
-  }
-  return hash.toString(16).padStart(8, "0");
+  return hashNumbers(values);
 }
 
 export interface ScenarioResult {
