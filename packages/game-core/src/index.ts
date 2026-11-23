@@ -1,5 +1,5 @@
 // Module
-export { defineGame } from "./module/index.ts";
+export   { defineGame }   from "./module/index.ts";
 export type { GameModule, Unmount } from "./module/index.ts";
 
 // Manifest
