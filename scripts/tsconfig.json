@@ -1,0 +1,5 @@
+{
+  // Repo scripts run under Bun, not in a browser: no DOM types.
+  "extends": "../tsconfig.base.json",
+  "include": ["."]
+}

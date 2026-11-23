@@ -49,3 +49,7 @@ jobs:
 
       - name: Build web
         run: bun run --filter web build
+
+      # The standalone server under Bun, as in Docker (docs/ARCHITECTURE.md, "Web: Next.js").
+      - name: Smoke-test the production server
+        run: bun scripts/smoke.ts
