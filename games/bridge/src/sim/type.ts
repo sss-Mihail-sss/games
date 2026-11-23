@@ -15,6 +15,29 @@ export interface AvatarState {
   readonly grounded: boolean;
 }
 
+export interface Vec3 {
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+}
+
+/**
+ * Where the player is aiming: a ray from behind the avatar's shoulder along the
+ * camera's yaw and pitch. The client puts its camera on this same ray, so the
+ * screen centre is exactly this ray, and the server (M2) sees what the player sees.
+ */
+export interface AimState {
+  readonly origin: Vec3;
+  /** Unit vector. */
+  readonly direction: Vec3;
+  /** The first thing within REACH, if any. */
+  readonly hit: {
+    readonly point: Vec3;
+    readonly normal: Vec3;
+    readonly distance: number;
+  } | null;
+}
+
 /** Plain numbers for rendering and tests: a new object every tick. */
 export interface SimState {
   /** Ticks simulated so far. */
@@ -25,6 +48,7 @@ export interface SimState {
    */
   readonly respawns: number;
   readonly avatar: AvatarState;
+  readonly aim: AimState;
 }
 
 /**
@@ -39,6 +63,9 @@ export interface SimSnapshot {
   readonly facing: number;
   readonly grounded: boolean;
   readonly respawns: number;
+  /** Look direction of the last tick, radians (yaw wrapped, pitch clamped). */
+  readonly yaw: number;
+  readonly pitch: number;
 }
 
 export interface Sim {
@@ -47,6 +74,15 @@ export interface Sim {
   state: () => SimState;
   snapshot: () => SimSnapshot;
   restore: (snapshot: SimSnapshot) => void;
+  /**
+   * Read-only ray query that ignores the avatar, e.g. for the camera's spring
+   * arm. Returns the distance to the first hit, or null. Doesn't change the world.
+   */
+  castRay: (
+    origin: Vec3,
+    direction: Vec3,
+    maxDistance: number,
+  ) => number | null;
   /** Frees the Rapier world: WASM memory is not garbage-collected. */
   dispose: () => void;
 }
