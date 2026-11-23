@@ -13,7 +13,7 @@
   "devDependencies": {
     "react": "catalog:",
     "@types/react": "catalog:",
-    "@types/bun": "latest"
+    "@types/bun": "catalog:"
   },
   "peerDependencies": {
     "typescript": "catalog:",
