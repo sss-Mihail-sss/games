@@ -2,15 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { mountGame } from "../../../../game-host/index.ts";
-import { gameLoader } from "../../../../game-loader/index.ts";
-import type { GameId } from "../../../../games/index.ts";
-import type { Locale } from "../../../../locale/index.ts";
+import { mountGame } from "#game-host/index.ts";
+import { gameLoader } from "#game-loader/index.ts";
+import type { GameId } from "#games/index.ts";
+import type { Locale } from "#locale/index.ts";
 import {
   createBrowserStorage,
   createPlatformContext,
   createSettingsStore,
-} from "../../../../platform/index.ts";
+} from "#platform/index.ts";
 
 interface GameHostProps {
   gameId: GameId;

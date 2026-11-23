@@ -1,5 +1,5 @@
 // Type-only: the catalog (manifests + zod) must not end up in the client bundle.
-import type { GameId } from "../games/index.ts";
+import type { GameId } from "#games/index.ts";
 import { createLoader } from "./loader.ts";
 
 /**

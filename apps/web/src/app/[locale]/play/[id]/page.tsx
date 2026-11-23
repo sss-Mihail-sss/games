@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { games } from "../../../../games/index.ts";
-import type { GameId } from "../../../../games/index.ts";
-import { getLocale, locales } from "../../../../locale/index.ts";
-import { playPath, siteName } from "../../../../site/index.ts";
+import { games } from "#games/index.ts";
+import type { GameId } from "#games/index.ts";
+import { getLocale, locales } from "#locale/index.ts";
+import { playPath, siteName } from "#site/index.ts";
 import { GameHost } from "./game-host.tsx";
 
 type Props = PageProps<"/[locale]/play/[id]">;
