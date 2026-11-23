@@ -52,7 +52,6 @@
     "games/bridge": {
       "name": "@repo/game-bridge",
       "dependencies": {
-        "@dimforge/rapier3d-compat": "catalog:",
         "@dimforge/rapier3d-deterministic-compat": "catalog:",
         "@repo/game-core": "workspace:*",
         "@repo/game-protocol": "workspace:*",
@@ -107,7 +106,6 @@
     },
   },
   "catalog": {
-    "@dimforge/rapier3d-compat": "0.21.0",
     "@dimforge/rapier3d-deterministic-compat": "0.21.0",
     "@tailwindcss/turbopack": "4.3.5",
     "@types/bun": "1.4.4",
@@ -162,7 +160,7 @@
 
     "@colyseus/ws-transport": ["@colyseus/ws-transport@0.18.5", "", { "dependencies": { "@types/ws": "^8.5.14", "ws": "^8.19.0" }, "peerDependencies": { "@colyseus/core": "^0.18.5", "express": "^4.16.0 || ^5.0.0" } }, "sha512-3VKf71E8lElsuhSH2PmYpN2au2waGEEtcWYdIJbKHS64aPEcWQze9Kw/LHI7JIB8j4VkOdPLjWdaR+v8Y/9enQ=="],
 
-    "@dimforge/rapier3d-compat": ["@dimforge/rapier3d-compat@0.21.0", "", {}, "sha512-tCl1HPGwOhn5aCQbgqWbOH+Nx/5fnr3IPAnzQuR7zIhC/raqi2yxC6LhvZqjdI2El5hQgY5RDAwDrAjAi2FdPA=="],
+    "@dimforge/rapier3d-compat": ["@dimforge/rapier3d-compat@0.12.0", "", {}, "sha512-uekIGetywIgopfD97oDL5PfeezkFpNhwlzlaEYNOA0N6ghdsOvh/HYjSMek5Q2O1PYvRSDFcqFVJl4r4ZBwOow=="],
 
     "@dimforge/rapier3d-deterministic-compat": ["@dimforge/rapier3d-deterministic-compat@0.21.0", "", {}, "sha512-n7JuU62Obljlgq+OeH2DHhTmRSjRzwuJPl54tS9pFIzVQyvXsO5CH+a5KkIRBtnFWDbg1Zicv9BulG0jfBAopA=="],
 
@@ -773,8 +771,6 @@
     "@tailwindcss/oxide-wasm32-wasi/@tybys/wasm-util": ["@tybys/wasm-util@0.10.5", "", { "dependencies": { "tslib": "^2.4.0" }, "bundled": true }, "sha512-dOGOPxlaNV+G046mZzN+9C0dAcQZeSKcXiVaM0TYy/LM4ttTmgSBDxYfovcYI8Em3+eAbiAYpvWLOv8+ZVRJKA=="],
 
     "@tailwindcss/oxide-wasm32-wasi/tslib": ["tslib@2.9.1", "", { "bundled": true }, "sha512-a4Ux9VKuIMHsOS7ENbEq6hK2ZGYIT27Rtl0E4eD9KqwxhKiQeMZE/9xb3IdYwWaSOyIBQLExhQgXDTYoiCxnWA=="],
-
-    "@types/three/@dimforge/rapier3d-compat": ["@dimforge/rapier3d-compat@0.12.0", "", {}, "sha512-uekIGetywIgopfD97oDL5PfeezkFpNhwlzlaEYNOA0N6ghdsOvh/HYjSMek5Q2O1PYvRSDFcqFVJl4r4ZBwOow=="],
 
     "express-session/cookie-signature": ["cookie-signature@1.0.7", "", {}, "sha512-NXdYc3dLr47pBkpUCHtKSwIOQXLVn8dZEuywboCOJY/osA0wFSLlSawr3KN8qXJEyX66FcONTH8EIlVuK0yyFA=="],
 

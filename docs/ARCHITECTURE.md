@@ -14,21 +14,21 @@
 
 ## Стек
 
-| Слой              | Технология                                                             |
-| ----------------- | ---------------------------------------------------------------------- |
-| Рантайм, монорепо | Bun workspaces                                                         |
-| Линтер, форматтер | `bun lint`, `bun fmt` (встроены в Bun с 1.4.4), без ESLint/Prettier    |
-| Оболочка сайта    | Next.js (App Router) + React 19 на рантайме Bun (`bun --bun`)          |
-| Стили             | Tailwind CSS v4 через загрузчик `@tailwindcss/turbopack` (без PostCSS) |
-| 2D                | Phaser 4 (или PixiJS 8, если нужен только рендер)                      |
-| 3D                | Three.js (WebGPURenderer с откатом на WebGL2), без R3F                 |
-| Физика            | Rapier (WASM), одна и та же в браузере и на сервере                    |
-| Realtime          | Colyseus 0.18 + `@colyseus/bun-websockets`                             |
-| API               | `Bun.serve` routes, zod-схемы в `packages/contracts`                   |
-| БД                | Postgres через `Bun.sql` + Drizzle                                     |
-| Кэш, presence     | Redis (`Bun.redis`), Colyseus RedisPresence                            |
-| Авторизация       | Better Auth: анонимные сессии + аккаунты                               |
-| Деплой            | Docker Compose на VPS: Caddy, web, api, game-server, Postgres, Redis   |
+| Слой              | Технология                                                                                                                          |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Рантайм, монорепо | Bun workspaces                                                                                                                      |
+| Линтер, форматтер | `bun lint`, `bun fmt` (встроены в Bun с 1.4.4), без ESLint/Prettier                                                                 |
+| Оболочка сайта    | Next.js (App Router) + React 19 на рантайме Bun (`bun --bun`)                                                                       |
+| Стили             | Tailwind CSS v4 через загрузчик `@tailwindcss/turbopack` (без PostCSS)                                                              |
+| 2D                | Phaser 4 (или PixiJS 8, если нужен только рендер)                                                                                   |
+| 3D                | Three.js (WebGPURenderer с откатом на WebGL2), без R3F                                                                              |
+| Физика            | Rapier `@dimforge/rapier3d-deterministic-compat` (WASM): один пакет в браузере и на сервере, бит-в-бит одинаковый результат (M1-01) |
+| Realtime          | Colyseus 0.18 + `@colyseus/bun-websockets`                                                                                          |
+| API               | `Bun.serve` routes, zod-схемы в `packages/contracts`                                                                                |
+| БД                | Postgres через `Bun.sql` + Drizzle                                                                                                  |
+| Кэш, presence     | Redis (`Bun.redis`), Colyseus RedisPresence                                                                                         |
+| Авторизация       | Better Auth: анонимные сессии + аккаунты                                                                                            |
+| Деплой            | Docker Compose на VPS: Caddy, web, api, game-server, Postgres, Redis                                                                |
 
 ### API: чистый Bun, а не Elysia 2 RC
 

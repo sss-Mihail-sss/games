@@ -1,15 +1,14 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 
-import RapierCompat from "@dimforge/rapier3d-compat";
-import RapierDeterministic from "@dimforge/rapier3d-deterministic-compat";
+import RAPIER from "@dimforge/rapier3d-deterministic-compat";
 
 import { buildWorld, runScenario, worldHash } from "./scenario.ts";
-import type { Rapier } from "./scenario.ts";
 
 /**
- * Golden hashes, recorded with Bun on macOS arm64 (M1-01). CI checks them on
- * Linux x64: same Rapier version + same inputs + same creation order must give
- * bit-identical physics, or client prediction and the server will drift (M2).
+ * Golden hashes, recorded with Bun on macOS arm64 (M1-01) and matched by Bun on
+ * Linux x64 (CI) and Chromium on macOS. Same Rapier version + same inputs + same
+ * creation order must give bit-identical physics, or client prediction and the
+ * server will drift (M2).
  * If a Rapier upgrade changes them, that's a decision, not a test to "fix".
  */
 const GOLDEN = {
@@ -22,14 +21,8 @@ const RUNS = [
   ["1200 steps at 1/60", 1200, 1 / 60],
 ] as const;
 
-// Both builds have one API; their declarations are separate copies, hence the cast.
-const BUILDS = [
-  ["compat", RapierCompat as Rapier],
-  ["deterministic-compat", RapierDeterministic as unknown as Rapier],
-] as const;
-
-/** The WASM memory of each build, caught when its module is instantiated. */
-const memories: WebAssembly.Memory[] = [];
+/** Rapier's WASM memory, caught when its module is instantiated. */
+let memory: WebAssembly.Memory | undefined;
 
 beforeAll(async () => {
   const instantiate = WebAssembly.instantiate.bind(WebAssembly);
@@ -41,22 +34,21 @@ beforeAll(async () => {
       WebAssembly.Instance | WebAssembly.WebAssemblyInstantiatedSource;
     const instance =
       result instanceof WebAssembly.Instance ? result : result.instance;
-    const memory = instance.exports["memory"];
-    if (memory instanceof WebAssembly.Memory) {
-      memories.push(memory);
+    const wasmMemory = instance.exports["memory"];
+    if (wasmMemory instanceof WebAssembly.Memory) {
+      memory = wasmMemory;
     }
     return result;
   }) as typeof WebAssembly.instantiate;
   try {
-    for (const [, R] of BUILDS) {
-      await R.init();
-    }
+    await RAPIER.init();
   } finally {
     WebAssembly.instantiate = instantiate;
   }
 });
 
-describe.each(BUILDS)("%s", (_, R) => {
+describe("scenario", () => {
+  const R = RAPIER;
   test.each(RUNS)("%s matches the golden hash", (name, steps, dt) => {
     expect(runScenario(R, { steps, dt }).hash).toBe(GOLDEN[name]);
   });
@@ -90,25 +82,22 @@ describe.each(BUILDS)("%s", (_, R) => {
 });
 
 describe("WASM memory", () => {
-  const cycle = (R: Rapier) => {
-    const { world } = buildWorld(R, 1 / 30);
+  const cycle = () => {
+    const { world } = buildWorld(RAPIER, 1 / 30);
     for (let i = 0; i < 60; i++) {
       world.step();
     }
     world.free();
   };
 
-  test.each(BUILDS.map(([name, R], i) => [name, R, i] as const))(
-    "%s: 20 build/free cycles don't grow memory",
-    (_, R, i) => {
-      const memory = memories[i];
-      expect(memory).toBeInstanceOf(WebAssembly.Memory);
-      cycle(R); // warm-up: the first world grows the heap once
-      const before = memory!.buffer.byteLength;
-      for (let n = 0; n < 20; n++) {
-        cycle(R);
-      }
-      expect(memory!.buffer.byteLength).toBe(before);
-    },
-  );
+  test("20 build/free cycles don't grow it", () => {
+    expect(memory).toBeInstanceOf(WebAssembly.Memory);
+    cycle(); // warm-up: the first world grows the heap once
+    const before = memory!.buffer.byteLength;
+    for (let n = 0; n < 20; n++) {
+      cycle();
+    }
+    // Without world.free() this grows ~0.5 MB per world (measured in M1-01).
+    expect(memory!.buffer.byteLength).toBe(before);
+  });
 });
