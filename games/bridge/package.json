@@ -13,7 +13,9 @@
   "dependencies": {
     "three": "catalog:",
     "@repo/game-core": "workspace:*",
-    "@repo/game-protocol": "workspace:*"
+    "@repo/game-protocol": "workspace:*",
+    "@dimforge/rapier3d-compat": "catalog:",
+    "@dimforge/rapier3d-deterministic-compat": "catalog:"
   },
   "devDependencies": {
     "@types/three": "catalog:"

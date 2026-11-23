@@ -13,7 +13,12 @@ import { dirname, extname, relative, resolve } from "node:path";
  * that TypeScript erases (`import type`, or names used only as types): those never
  * reach the server at runtime, so they can't break it.
  */
-const ALLOWED_PACKAGES = new Set(["@repo/game-protocol"]);
+const ALLOWED_PACKAGES = new Set([
+  "@repo/game-protocol",
+  // M1-01 spike: both builds while we measure; the loser goes in step 8.
+  "@dimforge/rapier3d-compat",
+  "@dimforge/rapier3d-deterministic-compat",
+]);
 const ALLOWED_IN_TESTS = new Set(["bun:test", "node:path"]);
 
 const SIM_DIR = import.meta.dir;
