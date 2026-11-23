@@ -77,7 +77,7 @@ export function ktxCreateArgs(
     // UASTC alone is big; Zstandard brings it close to ETC1S on the wire.
     args.push("--uastc-quality", "2", "--zstd", "18");
   } else {
-    args.push("--clevel", "4", "--qlevel", "255");
+    args.push("--clevel", "4", "--qlevel", "128");
   }
   args.push(input, output);
   return args;
