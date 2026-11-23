@@ -72,7 +72,7 @@
 - **Рантайм — Bun, Node не нужен.** Скрипты `web` запускают Next через `bun --bun` (без флага CLI Next стартует под Node из-за `#!/usr/bin/env node`). В Docker — образ `oven/bun` со standalone-сборкой (`bun server.js`). Так у всего монорепо один рантайм.
   - Проверено 2026-11-19 на Next 16.4.5 и Bun 1.4.5: `next build`, `next start`, `next dev` и standalone `server.js` работают под Bun.
   - `@types/node` нужен только как типы: Bun реализует Node API (Bun 1.4.5 сообщает `process.versions.node` = 26.12.1), поэтому версия `@types/node` следует за Bun — сейчас ветка 26.
-  - Риск: Next официально тестируется на Node. Если обновление Next сломается под Bun, запасной вариант — убрать `--bun` из трёх скриптов и поставить Node; код не меняется. В CI будет smoke-проверка `next build` + `next start` под Bun.
+  - Риск: Next официально тестируется на Node. Если обновление Next сломается под Bun, запасной вариант — убрать `--bun` из трёх скриптов и поставить Node; код не меняется. Это ловит CI: после `next build` [`scripts/smoke.ts`](../scripts/smoke.ts) запускает standalone-сервер под Bun, как в Docker, и проверяет основные маршруты ([workflow](../.github/workflows/ci.yml)).
 - **`mountGame` и платформа (`GameContext`) — чистый TS без Next.** Фреймворк меняется только в слое страниц.
 
 #### Бюджеты производительности
