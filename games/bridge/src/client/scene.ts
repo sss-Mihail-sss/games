@@ -1,6 +1,5 @@
 import {
   BoxGeometry,
-  CapsuleGeometry,
   Color,
   DirectionalLight,
   Fog,
@@ -12,14 +11,17 @@ import {
   Scene,
 } from "three";
 
-import { AVATAR_HEIGHT, AVATAR_RADIUS, LEVEL } from "../sim/index.ts";
+import { LEVEL } from "../sim/index.ts";
 
 const WATER_LEVEL = -3.5;
 const SKY = 0x9ecbf0;
 
 export interface World {
   scene: Scene;
-  /** Its origin stands on the ground; rotation.y is the facing. */
+  /**
+   * An empty anchor for the avatar model: its origin stands on the ground and
+   * rotation.y is the facing. The model is added by the caller (avatar-model.ts).
+   */
   avatar: Group;
   dispose: () => void;
 }
@@ -66,25 +68,6 @@ export function createWorld(): World {
   scene.add(water);
 
   const avatar = new Group();
-  const body = new Mesh(
-    own(
-      new CapsuleGeometry(
-        AVATAR_RADIUS,
-        AVATAR_HEIGHT - 2 * AVATAR_RADIUS,
-        4,
-        16,
-      ),
-    ),
-    own(new MeshStandardMaterial({ color: 0xe8833a })),
-  );
-  body.position.y = AVATAR_HEIGHT / 2;
-  // A "nose" along local −Z, so it is clear where the avatar looks.
-  const nose = new Mesh(
-    own(new BoxGeometry(0.16, 0.16, 0.3)),
-    own(new MeshStandardMaterial({ color: 0x2b2b2b })),
-  );
-  nose.position.set(0, AVATAR_HEIGHT - 0.3, -AVATAR_RADIUS);
-  avatar.add(body, nose);
   scene.add(avatar);
 
   return {

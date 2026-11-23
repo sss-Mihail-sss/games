@@ -10,7 +10,15 @@ import {
   physicsMemoryBytes,
   TICK_RATE,
 } from "../sim/index.ts";
-import type { SimState } from "../sim/index.ts";
+import type { Rapier, SimState } from "../sim/index.ts";
+import { acquireGltfLoader } from "./assets.ts";
+import {
+  createAvatar,
+  DEFAULT_AVATAR_MODEL,
+  fetchAvatarModel,
+  parseAvatarModel,
+} from "./avatar-model.ts";
+import type { Avatar, AvatarModel } from "./avatar-model.ts";
 import { createFollowCamera } from "./camera.ts";
 import { lerp, lerpAngle } from "./interpolate.ts";
 import { createView } from "./renderer.ts";
@@ -28,12 +36,25 @@ const dev = process.env.NODE_ENV !== "production";
 export default defineGame({
   manifest,
   mount: async (element, { signal, settings, log }) => {
-    // Rapier's WASM, once per page; a second visit reuses it.
-    const rapier = await loadPhysics();
+    // All at once: Rapier's WASM (once per page), the avatar model's bytes and
+    // the Basis transcoder for its textures (acquireGltfLoader starts that one).
+    const assets = acquireGltfLoader();
+    let loaded: [Rapier, ArrayBuffer];
+    try {
+      loaded = await Promise.all([
+        loadPhysics(),
+        fetchAvatarModel(DEFAULT_AVATAR_MODEL, signal),
+      ]);
+    } catch (error) {
+      assets.release();
+      throw error;
+    }
     if (signal.aborted) {
-      // Left while loading: nothing was created yet, so there is nothing to undo.
+      // Left while loading: only the loader was taken, so only it goes back.
+      assets.release();
       return () => {};
     }
+    const [rapier, modelBytes] = loaded;
 
     const sim = createSim(rapier);
     // Two sim states: render() blends between them by the loop's alpha, so
@@ -48,6 +69,9 @@ export default defineGame({
     const screen = createView(element, view.camera, settings);
     view.listen(screen.canvas);
     const input = createInput({ actions, bindings: DEFAULT_BINDINGS });
+    // Parsed below, once the renderer exists: KTX2 textures are transcoded for its GPU.
+    let model: AvatarModel | null = null;
+    let avatar: Avatar | null = null;
 
     const loop = createFixedLoop({
       tickRate: TICK_RATE,
@@ -59,6 +83,7 @@ export default defineGame({
         }
         previous = current;
         current = sim.state();
+        avatar?.tick(previous, current);
       },
       render: (alpha) => {
         // A respawn is a teleport: blending would fly the avatar across the map.
@@ -73,12 +98,11 @@ export default defineGame({
 
         world.avatar.position.set(x, y, z);
         world.avatar.rotation.y = lerpAngle(from.facing, to.facing, alpha);
+        avatar?.render();
         view.follow(x, y, z);
         screen.renderer.render(world.scene, view.camera);
       },
     });
-    loop.start();
-
     // Reverse order of creation. It guards itself: defineGame only wraps the
     // function we *return*, so the early call below would otherwise run twice
     // (here, then again from mountGame through the wrapper).
@@ -102,6 +126,9 @@ export default defineGame({
       // Dev check: every geometry the scene uploaded must be gone before the renderer goes.
       const memory = screen.renderer.info.memory;
       const before = { ...memory };
+      avatar?.dispose();
+      model?.dispose(); // geometry, material and textures of the model
+      assets.release(); // the transcoder's workers, once no game uses them
       world.dispose();
       if (dev) {
         // Textures are only reported: Three keeps its own (the 16×16 DFG_LUT of PBR
@@ -116,10 +143,25 @@ export default defineGame({
       screen.dispose(); // ResizeObserver, settings, renderer, context, canvas
     };
 
-    // The shell may have left the page while we were setting up.
-    if (signal.aborted) {
+    try {
+      model = await parseAvatarModel(
+        DEFAULT_AVATAR_MODEL,
+        modelBytes,
+        assets,
+        screen.renderer,
+      );
+    } catch (error) {
       unmount();
+      throw error;
     }
+    if (signal.aborted) {
+      // The shell left the page while we were setting up.
+      unmount();
+      return unmount;
+    }
+    avatar = createAvatar(model);
+    world.avatar.add(avatar.root);
+    loop.start();
 
     return unmount;
   },

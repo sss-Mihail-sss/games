@@ -207,8 +207,15 @@ games/bridge/
     bots/      ИИ, выдаёт те же команды, что и игрок
     client/    рендер, ввод, предсказание и интерполяция, камера, HUD
   levels/      уровни (JSON)
-  assets/      glTF, текстуры KTX2, meshopt, звук (кандидат на Git LFS)
+  assets/
+    src/       исходные модели .glb: их правит художник или генератор
+    dist/      что грузит игра: meshopt + KTX2, собирает `bun run assets`
+    models/    генераторы своих моделей (builder.ts → src/builder.glb)
 ```
+
+**Ассеты ([M1-10](tasks/M1-10-assets-avatar.md)).** [`scripts/optimize-assets.ts`](../scripts/optimize-assets.ts) превращает `assets/src/*.glb` в `assets/dist/*.glb`: удаляет дубли и мусор, ужимает анимации, ограничивает текстуры 1024 px и кодирует их в KTX2 / Basis (цвет — ETC1S, нормали — UASTC), геометрию сжимает meshopt. Для KTX2 нужен `ktx` из KTX-Software, поэтому `dist` коммитится: CI и Docker собирают сайт без него. Git LFS пока не нужен: «Строитель» весит 16 КБ. Возвращаемся к LFS, когда отдельный `.glb` перевалит за ~5 МБ.
+
+Клиент берёт модель по идентификатору из `AVATAR_MODELS` (литерал `new URL(…, import.meta.url)`): Turbopack кладёт файл в `/_next/static/media/` с хешем в имени. Так же приезжает транскодер Basis: `KTX2Loader` без `setTranscoderPath` сам ссылается на свои `basis_transcoder.js` / `.wasm` через `new URL`. Оболочка про ассеты игры ничего не знает. Модель — только картинка: анимации выбирает автомат в `client/animation.ts` по `SimState`, а физика остаётся капсулой в `sim`.
 
 Правило: `sim/` импортируют и `client/`, и `server/`, а сам `sim/` не импортирует ни того, ни другого.
 
