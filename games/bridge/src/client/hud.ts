@@ -5,8 +5,13 @@
 export interface Hud {
   /** Call every frame; touches the DOM only when something changed. */
   update: (state: { locked: boolean; target: boolean }) => void;
+  /** A short message at the bottom, e.g. "Недоступно: спринт"; fades by itself. */
+  notice: (text: string) => void;
   dispose: () => void;
 }
+
+/** How long a notice stays, milliseconds. */
+const NOTICE_MS = 1200;
 
 export function createHud(element: HTMLElement): Hud {
   // The overlay and the crosshair are positioned against the game's container.
@@ -48,16 +53,46 @@ export function createHud(element: HTMLElement): Hud {
   const title = document.createElement("div");
   title.textContent = "Кликни, чтобы играть";
   const hint = document.createElement("div");
-  hint.textContent = "Мышь — обзор, WASD — ходьба, Esc — отпустить мышь";
-  Object.assign(hint.style, { font: "400 0.875rem system-ui, sans-serif" });
+  hint.textContent =
+    "Мышь — обзор, WASD — ходьба, Space — прыжок, Shift — бег, C — присед, Z — крадучись. Esc — отпустить мышь";
+  Object.assign(hint.style, {
+    font: "400 0.875rem system-ui, sans-serif",
+    maxWidth: "32rem",
+    textAlign: "center",
+  });
   overlay.append(title, hint);
 
-  element.append(crosshair, overlay);
+  const toast = document.createElement("div");
+  Object.assign(toast.style, {
+    position: "absolute",
+    left: "50%",
+    bottom: "12%",
+    transform: "translateX(-50%)",
+    padding: "0.375rem 0.75rem",
+    borderRadius: "0.5rem",
+    background: "rgba(0, 0, 0, 0.6)",
+    color: "white",
+    font: "500 0.875rem system-ui, sans-serif",
+    pointerEvents: "none",
+    display: "none",
+  } satisfies Partial<CSSStyleDeclaration>);
+  let hideAt = 0;
+
+  element.append(crosshair, overlay, toast);
 
   let shown: { locked: boolean; target: boolean } | null = null;
 
   return {
+    notice: (text) => {
+      toast.textContent = text;
+      toast.style.display = "block";
+      hideAt = performance.now() + NOTICE_MS;
+    },
     update: (state) => {
+      if (hideAt !== 0 && performance.now() > hideAt) {
+        toast.style.display = "none";
+        hideAt = 0;
+      }
       if (shown?.locked === state.locked && shown.target === state.target) {
         return;
       }
@@ -71,6 +106,7 @@ export function createHud(element: HTMLElement): Hud {
     dispose: () => {
       crosshair.remove();
       overlay.remove();
+      toast.remove();
       element.style.position = previousPosition;
     },
   };

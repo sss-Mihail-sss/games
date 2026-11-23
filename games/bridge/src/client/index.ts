@@ -8,10 +8,11 @@ import {
   loadPhysics,
   physicsMemoryBytes,
   PITCH_LIMITS,
+  shoulderScale,
   SPAWN,
   TICK_RATE,
 } from "../sim/index.ts";
-import type { SimState } from "../sim/index.ts";
+import type { Abilities, SimState } from "../sim/index.ts";
 import { createShoulderCamera } from "./camera.ts";
 import { createHud } from "./hud.ts";
 import { lerp, lerpAngle } from "./interpolate.ts";
@@ -23,7 +24,23 @@ const DEFAULT_BINDINGS: Bindings<typeof actions.list> = {
   back: ["Key:KeyS", "Key:ArrowDown"],
   left: ["Key:KeyA", "Key:ArrowLeft"],
   right: ["Key:KeyD", "Key:ArrowRight"],
+  // No Ctrl or Alt: Ctrl+W closes the tab whatever we do, Alt opens the window menu.
+  jump: ["Key:Space"],
+  sprint: ["Key:ShiftLeft"],
+  crouch: ["Key:KeyC"],
+  sneak: ["Key:KeyZ"],
 };
+
+/** For "Недоступно: …" when the sim ignores a disabled ability. */
+const ABILITY_LABELS = {
+  jump: "прыжок",
+  sprint: "бег",
+  crouch: "присед",
+  sneak: "ходьба крадучись",
+} as const satisfies Record<keyof Abilities, string>;
+
+/** How fast the crouch picture and camera follow the sim, per second. */
+const CROUCH_EASE = 14;
 
 const dev = process.env.NODE_ENV !== "production";
 
@@ -43,6 +60,8 @@ export default defineGame({
     let previous: SimState = sim.state();
     let current = previous;
     let tickMs = 0; // dev: total time spent in sim.step()
+    let heightScale = 1;
+    let lastFrame = performance.now();
 
     const world = createWorld();
     const view = createShoulderCamera();
@@ -66,7 +85,19 @@ export default defineGame({
       tickRate: TICK_RATE,
       update: (tick) => {
         const start = dev ? performance.now() : 0;
-        sim.step(input.sample(tick));
+        const frame = input.sample(tick);
+        sim.step(frame);
+        // The sim already ignored a disabled ability; just say why nothing happened.
+        for (const ability of Object.keys(
+          ABILITY_LABELS,
+        ) as (keyof Abilities)[]) {
+          if (
+            actions.wasPressed(frame, ability) &&
+            !current.abilities[ability]
+          ) {
+            hud.notice(`Недоступно: ${ABILITY_LABELS[ability]}`);
+          }
+        }
         if (dev) {
           tickMs += performance.now() - start;
         }
@@ -84,12 +115,25 @@ export default defineGame({
         const y = lerp(from.y, to.y, alpha);
         const z = lerp(from.z, to.z, alpha);
 
+        // The crouch snaps in the sim; the picture and camera ease into it.
+        const now = performance.now();
+        const ease = Math.min(1, ((now - lastFrame) / 1000) * CROUCH_EASE);
+        lastFrame = now;
+        heightScale += (shoulderScale(to.crouched) - heightScale) * ease;
+
         world.avatar.position.set(x, y, z);
         world.avatar.rotation.y = lerpAngle(from.facing, to.facing, alpha);
+        world.avatar.scale.y = heightScale; // placeholder until the model (M1-10)
         // The live look, not the tick's quantized one: turning stays smooth at
         // any refresh rate. The sim gets the same angles, quantized, every tick.
         const look = input.look();
-        view.follow({ x, y, z }, look.yaw, look.pitch, sim.castRay);
+        view.follow(
+          { x, y, z },
+          look.yaw,
+          look.pitch,
+          heightScale,
+          sim.castRay,
+        );
 
         const { hit } = current.aim;
         hud.update({ locked: input.locked, target: hit !== null });
