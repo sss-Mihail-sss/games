@@ -36,6 +36,9 @@
     },
     {
       "path": "./games/bridge/src/sim"
+    },
+    {
+      "path": "./scripts"
     }
   ]
 }
