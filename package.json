@@ -18,7 +18,9 @@
       "@types/node": "26.6.6",
       "next": "16.4.5",
       "three": "0.187.0",
-      "@types/three": "0.187.0"
+      "@types/three": "0.187.0",
+      "tailwindcss": "4.3.5",
+      "@tailwindcss/turbopack": "4.3.5"
     }
   },
   "scripts": {

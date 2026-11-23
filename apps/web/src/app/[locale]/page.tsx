@@ -10,13 +10,14 @@ export default async function CatalogPage() {
 
   return (
     <main>
-      <h1>Игры</h1>
-      <ul className="catalog">
+      <h1 className="mb-6 text-3xl font-bold">Игры</h1>
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-6">
         {games.manifests.map((game, index) => (
-          <li key={game.id} className="card">
+          <li key={game.id}>
             <Image
               src={game.thumbnail}
               alt=""
+              className="h-auto w-full rounded-lg"
               width={320}
               height={180}
               // The first card is the LCP element: fetch it right away and ahead of
@@ -25,9 +26,15 @@ export default async function CatalogPage() {
               loading={index === 0 ? "eager" : "lazy"}
               fetchPriority={index === 0 ? "high" : "auto"}
             />
-            <h2>{game.title}</h2>
-            {game.description && <p>{game.description}</p>}
-            <PlayLink gameId={game.id} href={playPath(locale, game.id)}>
+            <h2 className="mt-3 text-xl font-semibold">{game.title}</h2>
+            {game.description && (
+              <p className="mt-1 opacity-80">{game.description}</p>
+            )}
+            <PlayLink
+              gameId={game.id}
+              href={playPath(locale, game.id)}
+              className="mt-2 inline-block underline underline-offset-4"
+            >
               Играть
             </PlayLink>
           </li>

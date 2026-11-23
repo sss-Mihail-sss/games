@@ -59,8 +59,8 @@ export default async function PlayPage({ params }: Props) {
   const game = games.manifest(id);
 
   return (
-    <main className="play">
-      <h1>{game.title}</h1>
+    <main className="flex h-[calc(100vh-4rem)] flex-col">
+      <h1 className="mb-4 text-2xl font-bold">{game.title}</h1>
       <GameHost gameId={id} locale={locale} />
     </main>
   );

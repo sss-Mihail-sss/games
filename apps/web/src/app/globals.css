@@ -1,36 +1,11 @@
-:root {
-  color-scheme: light dark;
-  font-family: system-ui, sans-serif;
-}
+@import "tailwindcss";
 
-body {
-  margin: 0;
-  padding: 2rem;
-}
+/* Tailwind scans apps/web (the loader's base is where Next runs). The UI kit lives
+   outside it and builds class names with tailwind-variants, so scan it too. */
+@source "../../../../packages/ui/src";
 
-.catalog {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1.5rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.card img {
-  display: block;
-  width: 100%;
-  height: auto;
-  border-radius: 8px;
-}
-
-.play {
-  display: flex;
-  flex-direction: column;
-  height: calc(100vh - 4rem);
-}
-
-.game {
-  flex: 1;
-  min-height: 0;
+@layer base {
+  :root {
+    color-scheme: light dark;
+  }
 }

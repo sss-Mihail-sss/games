@@ -9,6 +9,7 @@ import type { GameId } from "../../games/index.ts";
 interface PlayLinkProps {
   gameId: GameId;
   href: string;
+  className?: string;
   children: ReactNode;
 }
 
@@ -17,13 +18,18 @@ interface PlayLinkProps {
  * shows intent (pointer over the link, or keyboard focus). Next only prefetches
  * the page itself; the game chunk is loaded by GameHost, so we warm it up here.
  */
-export function PlayLink({ gameId, href, children }: PlayLinkProps) {
+export function PlayLink({ gameId, href, className, children }: PlayLinkProps) {
   const preload = () => {
     gameLoader.preload(gameId);
   };
 
   return (
-    <Link href={href} onPointerEnter={preload} onFocus={preload}>
+    <Link
+      href={href}
+      className={className}
+      onPointerEnter={preload}
+      onFocus={preload}
+    >
       {children}
     </Link>
   );

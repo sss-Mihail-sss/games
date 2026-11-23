@@ -20,6 +20,16 @@ const nextConfig: NextConfig = {
   ],
   // Self-contained server for the Docker image (see docs/ARCHITECTURE.md).
   output: "standalone",
+  turbopack: {
+    rules: {
+      // Tailwind v4 as a Turbopack loader instead of PostCSS: one step less on
+      // every CSS change. Only our own CSS: node_modules has no @import "tailwindcss".
+      "*.css": {
+        condition: { not: "foreign" },
+        loaders: ["@tailwindcss/turbopack"],
+      },
+    },
+  },
   experimental: {
     // Our root layout is app/[locale]/layout.tsx, so there is no layout for a
     // segment-level not-found.tsx to render into: every 404 (unknown locale, unknown
