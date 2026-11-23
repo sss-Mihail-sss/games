@@ -23,7 +23,6 @@
       "tailwindcss": "4.3.5",
       "@tailwindcss/turbopack": "4.3.5",
       "@types/bun": "1.4.4",
-      "@dimforge/rapier3d-compat": "0.21.0",
       "@dimforge/rapier3d-deterministic-compat": "0.21.0"
     }
   },
