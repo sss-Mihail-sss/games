@@ -6,7 +6,7 @@ const deg = (degrees: number) => (degrees * Math.PI) / 180;
 
 describe("lerp", () => {
   test("blends from → to by alpha", () => {
-    expect(lerp(2, 4, 0)).toBe(2);
+    expect(lerp(2, 4, 0)).toBe(3); // M0-07: deliberately broken
     expect(lerp(2, 4, 0.25)).toBe(2.5);
     expect(lerp(2, 4, 1)).toBe(4);
   });
