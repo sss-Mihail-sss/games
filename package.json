@@ -2,6 +2,7 @@
   "name": "games.secrii.dev",
   "type": "module",
   "private": true,
+  "packageManager": "bun@1.4.5",
   "workspaces": {
     "packages": [
       "apps/*",
@@ -20,7 +21,8 @@
       "three": "0.187.0",
       "@types/three": "0.187.0",
       "tailwindcss": "4.3.5",
-      "@tailwindcss/turbopack": "4.3.5"
+      "@tailwindcss/turbopack": "4.3.5",
+      "@types/bun": "1.4.4"
     }
   },
   "scripts": {
@@ -34,7 +36,7 @@
     "test": "bun test --pass-with-no-tests"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "catalog:"
   },
   "peerDependencies": {
     "typescript": "catalog:"
