@@ -12,11 +12,8 @@ import {
   Scene,
 } from "three";
 
-import { AVATAR_RADIUS, LEVEL } from "../sim/index.ts";
+import { AVATAR_HEIGHT, AVATAR_RADIUS, LEVEL } from "../sim/index.ts";
 
-/** Total avatar height in metres: a capsule is its middle part plus two caps. */
-const AVATAR_HEIGHT = 1.7;
-const BANK_DEPTH = 4;
 const WATER_LEVEL = -3.5;
 const SKY = 0x9ecbf0;
 
@@ -47,14 +44,14 @@ export function createWorld(): World {
 
   const grass = own(new MeshStandardMaterial({ color: 0x6b9b4a }));
   const bankGeometry = own(
-    new BoxGeometry(LEVEL.bankLength, BANK_DEPTH, LEVEL.width),
+    new BoxGeometry(LEVEL.bankLength, LEVEL.bankDepth, LEVEL.width),
   );
   for (const side of [-1, 1]) {
     const bank = new Mesh(bankGeometry, grass);
     // Top face at y = 0, inner edge at ±gap/2.
     bank.position.set(
       side * (LEVEL.gap / 2 + LEVEL.bankLength / 2),
-      -BANK_DEPTH / 2,
+      -LEVEL.bankDepth / 2,
       0,
     );
     scene.add(bank);

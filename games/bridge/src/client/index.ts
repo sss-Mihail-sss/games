@@ -3,7 +3,13 @@ import type { Bindings } from "@repo/game-core";
 import { quantizeYaw } from "@repo/game-protocol";
 
 import { manifest } from "../manifest.ts";
-import { actions, createInitialState, step, TICK_RATE } from "../sim/index.ts";
+import {
+  actions,
+  createSim,
+  loadPhysics,
+  physicsMemoryBytes,
+  TICK_RATE,
+} from "../sim/index.ts";
 import type { SimState } from "../sim/index.ts";
 import { createFollowCamera } from "./camera.ts";
 import { lerp, lerpAngle } from "./interpolate.ts";
@@ -17,13 +23,24 @@ const DEFAULT_BINDINGS: Bindings<typeof actions.list> = {
   right: ["Key:KeyD", "Key:ArrowRight"],
 };
 
+const dev = process.env.NODE_ENV !== "production";
+
 export default defineGame({
   manifest,
-  mount: (element, { signal, settings, log }) => {
+  mount: async (element, { signal, settings, log }) => {
+    // Rapier's WASM, once per page; a second visit reuses it.
+    const rapier = await loadPhysics();
+    if (signal.aborted) {
+      // Left while loading: nothing was created yet, so there is nothing to undo.
+      return () => {};
+    }
+
+    const sim = createSim(rapier);
     // Two sim states: render() blends between them by the loop's alpha, so
     // movement is smooth at any refresh rate although the sim ticks at 30 Hz.
-    let previous: SimState = createInitialState();
+    let previous: SimState = sim.state();
     let current = previous;
+    let tickMs = 0; // dev: total time spent in sim.step()
 
     const world = createWorld();
     // The camera starts behind the avatar, so W walks towards the gap.
@@ -34,19 +51,29 @@ export default defineGame({
 
     const loop = createFixedLoop({
       tickRate: TICK_RATE,
-      update: (tick, dt) => {
+      update: (tick) => {
+        const start = dev ? performance.now() : 0;
+        sim.step(input.sample(tick, quantizeYaw(view.yaw)));
+        if (dev) {
+          tickMs += performance.now() - start;
+        }
         previous = current;
-        current = step(current, input.sample(tick, quantizeYaw(view.yaw)), dt);
+        current = sim.state();
       },
       render: (alpha) => {
-        const from = previous.avatar;
+        // A respawn is a teleport: blending would fly the avatar across the map.
+        const from =
+          current.respawns === previous.respawns
+            ? previous.avatar
+            : current.avatar;
         const to = current.avatar;
         const x = lerp(from.x, to.x, alpha);
+        const y = lerp(from.y, to.y, alpha);
         const z = lerp(from.z, to.z, alpha);
 
-        world.avatar.position.set(x, 0, z);
+        world.avatar.position.set(x, y, z);
         world.avatar.rotation.y = lerpAngle(from.facing, to.facing, alpha);
-        view.follow(x, z);
+        view.follow(x, y, z);
         screen.renderer.render(world.scene, view.camera);
       },
     });
@@ -63,12 +90,20 @@ export default defineGame({
       disposed = true;
       loop.stop();
       input.dispose();
+      if (dev && current.tick > 0) {
+        // WASM memory never shrinks; if it grows from visit to visit, a world leaks.
+        const mb = (physicsMemoryBytes() ?? 0) / 2 ** 20;
+        log.info(
+          `sim: ${(tickMs / current.tick).toFixed(3)} ms/tick over ${current.tick} ticks, physics memory ${mb.toFixed(1)} MB`,
+        );
+      }
+      sim.dispose(); // frees the Rapier world
       view.dispose();
       // Dev check: every geometry the scene uploaded must be gone before the renderer goes.
       const memory = screen.renderer.info.memory;
       const before = { ...memory };
       world.dispose();
-      if (process.env.NODE_ENV !== "production") {
+      if (dev) {
         // Textures are only reported: Three keeps its own (the 16×16 DFG_LUT of PBR
         // materials) until renderer.dispose(), so 1 → 1 here is not a leak.
         const message = `GPU after scene dispose: geometries ${before.geometries} → ${memory.geometries}, textures ${before.textures} → ${memory.textures}`;
@@ -86,6 +121,6 @@ export default defineGame({
       unmount();
     }
 
-    return Promise.resolve(unmount);
+    return unmount;
   },
 });
