@@ -3,8 +3,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { gameLoader } from "../../game-loader/index.ts";
-import type { GameId } from "../../games/index.ts";
+import { gameLoader } from "#game-loader/index.ts";
+import type { GameId } from "#games/index.ts";
 
 interface PlayLinkProps {
   gameId: GameId;

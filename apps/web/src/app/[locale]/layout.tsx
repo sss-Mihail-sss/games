@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
-import { getLocale, localeParams } from "../../locale/index.ts";
-import { siteName, siteUrl } from "../../site/index.ts";
+import { getLocale, localeParams } from "#locale/index.ts";
+import { siteName, siteUrl } from "#site/index.ts";
 
 import "../globals.css";
 

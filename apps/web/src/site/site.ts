@@ -1,4 +1,4 @@
-import type { Locale } from "../locale/index.ts";
+import type { Locale } from "#locale/index.ts";
 
 export const siteName = "games.secrii.dev";
 

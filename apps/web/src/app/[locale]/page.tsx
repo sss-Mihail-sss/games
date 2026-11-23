@@ -1,8 +1,8 @@
 import Image from "next/image";
 
-import { games } from "../../games/index.ts";
-import { getLocale } from "../../locale/index.ts";
-import { playPath } from "../../site/index.ts";
+import { games } from "#games/index.ts";
+import { getLocale } from "#locale/index.ts";
+import { playPath } from "#site/index.ts";
 import { PlayLink } from "./play-link.tsx";
 
 export default async function CatalogPage() {

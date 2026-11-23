@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { defaultLocale } from "../locale/index.ts";
-import { catalogPath, siteName } from "../site/index.ts";
+import { defaultLocale } from "#locale/index.ts";
+import { catalogPath, siteName } from "#site/index.ts";
 
 import "./globals.css";
 

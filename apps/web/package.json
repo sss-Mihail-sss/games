@@ -1,6 +1,9 @@
 {
   "name": "web",
   "type": "module",
+  "imports": {
+    "#*": "./src/*"
+  },
   "private": true,
   "scripts": {
     "dev": "bun --bun next dev",
