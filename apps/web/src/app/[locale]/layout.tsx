@@ -31,7 +31,7 @@ export default async function RootLayout({
 
   return (
     <html lang={current}>
-      <body>{children}</body>
+      <body className="p-8 font-sans">{children}</body>
     </html>
   );
 }

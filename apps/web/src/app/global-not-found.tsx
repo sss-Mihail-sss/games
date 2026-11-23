@@ -18,11 +18,16 @@ export const metadata: Metadata = {
 export default function GlobalNotFound() {
   return (
     <html lang={defaultLocale}>
-      <body>
+      <body className="p-8 font-sans">
         <main>
-          <h1>Страница не найдена</h1>
-          <p>Такой игры или страницы нет.</p>
-          <Link href={catalogPath(defaultLocale)}>Назад в каталог</Link>
+          <h1 className="mb-2 text-2xl font-bold">Страница не найдена</h1>
+          <p className="mb-4">Такой игры или страницы нет.</p>
+          <Link
+            href={catalogPath(defaultLocale)}
+            className="underline underline-offset-4"
+          >
+            Назад в каталог
+          </Link>
         </main>
       </body>
     </html>

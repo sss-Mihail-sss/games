@@ -55,5 +55,5 @@ export function GameHost({ gameId, locale }: GameHostProps) {
     });
   }, [gameId, locale]);
 
-  return <div ref={elementRef} className="game" />;
+  return <div ref={elementRef} className="min-h-0 flex-1" />;
 }
