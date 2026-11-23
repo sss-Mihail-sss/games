@@ -1,6 +1,5 @@
 import { createFixedLoop, createInput, defineGame } from "@repo/game-core";
 import type { Bindings } from "@repo/game-core";
-import { quantizeYaw } from "@repo/game-protocol";
 
 import { manifest } from "../manifest.ts";
 import {
@@ -8,10 +7,13 @@ import {
   createSim,
   loadPhysics,
   physicsMemoryBytes,
+  PITCH_LIMITS,
+  SPAWN,
   TICK_RATE,
 } from "../sim/index.ts";
 import type { SimState } from "../sim/index.ts";
-import { createFollowCamera } from "./camera.ts";
+import { createShoulderCamera } from "./camera.ts";
+import { createHud } from "./hud.ts";
 import { lerp, lerpAngle } from "./interpolate.ts";
 import { createView } from "./renderer.ts";
 import { createWorld } from "./scene.ts";
@@ -43,17 +45,28 @@ export default defineGame({
     let tickMs = 0; // dev: total time spent in sim.step()
 
     const world = createWorld();
-    // The camera starts behind the avatar, so W walks towards the gap.
-    const view = createFollowCamera(current.avatar.facing);
+    const view = createShoulderCamera();
     const screen = createView(element, view.camera, settings);
-    view.listen(screen.canvas);
-    const input = createInput({ actions, bindings: DEFAULT_BINDINGS });
+    const hud = createHud(element);
+    // The mouse looks around once captured by a click on the canvas; the look
+    // starts along the spawn facing, so W walks towards the gap.
+    const input = createInput({
+      actions,
+      bindings: DEFAULT_BINDINGS,
+      pointer: {
+        element: screen.canvas,
+        sensitivity: () => settings.current.mouse.sensitivity,
+        invertY: () => settings.current.mouse.invertY,
+        pitchLimits: PITCH_LIMITS,
+        initialYaw: SPAWN.facing,
+      },
+    });
 
     const loop = createFixedLoop({
       tickRate: TICK_RATE,
       update: (tick) => {
         const start = dev ? performance.now() : 0;
-        sim.step(input.sample(tick, quantizeYaw(view.yaw)));
+        sim.step(input.sample(tick));
         if (dev) {
           tickMs += performance.now() - start;
         }
@@ -73,7 +86,19 @@ export default defineGame({
 
         world.avatar.position.set(x, y, z);
         world.avatar.rotation.y = lerpAngle(from.facing, to.facing, alpha);
-        view.follow(x, y, z);
+        // The live look, not the tick's quantized one: turning stays smooth at
+        // any refresh rate. The sim gets the same angles, quantized, every tick.
+        const look = input.look();
+        view.follow({ x, y, z }, look.yaw, look.pitch, sim.castRay);
+
+        const { hit } = current.aim;
+        hud.update({ locked: input.locked, target: hit !== null });
+        if (dev) {
+          world.aimMarker.visible = hit !== null;
+          if (hit) {
+            world.aimMarker.position.set(hit.point.x, hit.point.y, hit.point.z);
+          }
+        }
         screen.renderer.render(world.scene, view.camera);
       },
     });
@@ -98,7 +123,7 @@ export default defineGame({
         );
       }
       sim.dispose(); // frees the Rapier world
-      view.dispose();
+      hud.dispose();
       // Dev check: every geometry the scene uploaded must be gone before the renderer goes.
       const memory = screen.renderer.info.memory;
       const before = { ...memory };

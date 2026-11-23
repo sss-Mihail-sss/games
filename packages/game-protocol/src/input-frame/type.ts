@@ -5,6 +5,8 @@ export interface InputFrame {
   released: number;
   /** Camera yaw in wire units (`quantizeYaw`), an integer in `0…YAW_STEPS - 1`. */
   yaw: number;
+  /** Camera pitch in wire units (`quantizePitch`), an integer in `0…PITCH_MAX`. */
+  pitch: number;
 }
 
 export interface Actions<A extends readonly string[] = readonly string[]> {

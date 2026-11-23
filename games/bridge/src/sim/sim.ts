@@ -1,10 +1,11 @@
-import { yawToRadians } from "@repo/game-protocol";
+import { pitchToRadians, yawToRadians } from "@repo/game-protocol";
 import type { InputFrame } from "@repo/game-protocol";
 
 import { actions } from "./actions.ts";
+import { aimRay, clampPitch, REACH } from "./aim.ts";
 import { buildLevel, LEVEL } from "./level.ts";
 import type { Rapier, World } from "./physics.ts";
-import type { Sim, SimSnapshot, SimState } from "./type.ts";
+import type { AimState, Sim, SimSnapshot, SimState, Vec3 } from "./type.ts";
 
 /** Ticks per second. The server (M2) must use the same value. */
 export const TICK_RATE = 30;
@@ -74,6 +75,38 @@ export function createSim(R: Rapier): Sim {
   let facing: number = SPAWN.facing;
   let grounded = false;
   let respawns = 0;
+  // The look of the last tick; before the first one, along the spawn facing.
+  let yaw: number = SPAWN.facing;
+  let pitch = 0;
+
+  /** First hit along a ray, ignoring the avatar's own capsule. */
+  function cast(origin: Vec3, direction: Vec3, maxDistance: number) {
+    return world.castRayAndGetNormal(
+      new R.Ray(origin, direction),
+      maxDistance,
+      true, // a ray starting inside a collider hits it at 0: no aiming through walls
+      undefined,
+      undefined,
+      collider,
+    );
+  }
+
+  function aim(at: Vec3): AimState {
+    const ray = aimRay(at, yaw, pitch);
+    const hit = cast(ray.origin, ray.direction, REACH);
+    return {
+      ...ray,
+      hit: hit && {
+        point: {
+          x: ray.origin.x + ray.direction.x * hit.timeOfImpact,
+          y: ray.origin.y + ray.direction.y * hit.timeOfImpact,
+          z: ray.origin.z + ray.direction.z * hit.timeOfImpact,
+        },
+        normal: { x: hit.normal.x, y: hit.normal.y, z: hit.normal.z },
+        distance: hit.timeOfImpact,
+      },
+    };
+  }
 
   function substep(dx: number, dz: number) {
     // The controller doesn't apply gravity, so we integrate it — but only in the
@@ -114,6 +147,8 @@ export function createSim(R: Rapier): Sim {
 
   return {
     step: (frame) => {
+      yaw = yawToRadians(frame.yaw);
+      pitch = clampPitch(pitchToRadians(frame.pitch));
       const direction = walkDirection(frame);
       if (direction) {
         facing = Math.atan2(-direction.dx, -direction.dz);
@@ -133,6 +168,7 @@ export function createSim(R: Rapier): Sim {
         tick,
         respawns,
         avatar: { x: at.x, y: at.y, z: at.z, facing, grounded },
+        aim: aim(at),
       };
     },
 
@@ -143,6 +179,8 @@ export function createSim(R: Rapier): Sim {
       facing,
       grounded,
       respawns,
+      yaw,
+      pitch,
     }),
 
     restore: (snapshot: SimSnapshot) => {
@@ -153,8 +191,11 @@ export function createSim(R: Rapier): Sim {
       body = world.getRigidBody(bodyHandle);
       collider = world.getCollider(colliderHandle);
       controller = createController(world);
-      ({ tick, vy, facing, grounded, respawns } = snapshot);
+      ({ tick, vy, facing, grounded, respawns, yaw, pitch } = snapshot);
     },
+
+    castRay: (origin, direction, maxDistance) =>
+      cast(origin, direction, maxDistance)?.timeOfImpact ?? null,
 
     dispose: () => {
       world.free(); // also frees the character controller

@@ -11,6 +11,7 @@ const frame = (overrides: Partial<InputFrame> = {}): InputFrame => ({
   pressed: 0,
   released: 0,
   yaw: 0,
+  pitch: 0,
   ...overrides,
 });
 
