@@ -1,0 +1,51 @@
+# Definition of Done (docs/tasks/README.md), automated. The job name `ci` is the
+# required status check for main (docs/tasks/M0-07-ci.md, step 5).
+name: CI
+
+on:
+  pull_request:
+  # main too: two green PRs can still break main together.
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # A new push to a PR supersedes the old run; runs on main all finish.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Bun (version from packageManager)
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install (fails if bun.lock is out of date)
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck (runs next typegen first)
+        run: bun run typecheck
+
+      - name: Test
+        run: bun run test
+
+      - name: Lint (warnings fail too)
+        run: bun lint --max-warnings=0
+
+      - name: Format
+        run: bun fmt --check
+
+      - name: Build web
+        run: bun run --filter web build
