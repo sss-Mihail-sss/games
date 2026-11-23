@@ -13,8 +13,8 @@ export interface FollowCamera {
   readonly yaw: number;
   /** Turns the camera by dragging on `surface`. Listeners go away with `dispose`. */
   listen: (surface: HTMLElement) => void;
-  /** Places the camera behind a point on the ground; call every frame. */
-  follow: (x: number, z: number) => void;
+  /** Places the camera behind the avatar's feet at (x, y, z); call every frame. */
+  follow: (x: number, y: number, z: number) => void;
   dispose: () => void;
 }
 
@@ -75,14 +75,14 @@ export function createFollowCamera(initialYaw: number): FollowCamera {
         surface.addEventListener(type, stop, { signal });
       }
     },
-    follow: (x, z) => {
+    follow: (x, y, z) => {
       // Behind = the opposite of forward (−sin, −cos).
       camera.position.set(
         x + Math.sin(yaw) * DISTANCE,
-        HEIGHT,
+        y + HEIGHT,
         z + Math.cos(yaw) * DISTANCE,
       );
-      camera.lookAt(x, LOOK_AT_HEIGHT, z);
+      camera.lookAt(x, y + LOOK_AT_HEIGHT, z);
     },
     dispose: () => {
       controller.abort();
