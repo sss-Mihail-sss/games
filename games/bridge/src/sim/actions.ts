@@ -6,6 +6,11 @@ export const actions = defineActions([
   "back",
   "left",
   "right",
+  // M1-09, appended: the bits above must not move.
+  "jump",
+  "sprint",
+  "crouch",
+  "sneak",
 ] as const);
 
 export type Action = (typeof actions.list)[number];

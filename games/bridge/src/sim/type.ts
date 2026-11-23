@@ -1,5 +1,7 @@
 import type { InputFrame } from "@repo/game-protocol";
 
+import type { Abilities, MovementMode } from "./movement.ts";
+
 export interface AvatarState {
   /** Metres, at the avatar's feet. */
   readonly x: number;
@@ -13,6 +15,11 @@ export interface AvatarState {
   readonly facing: number;
   /** Standing on something at the end of the last tick. */
   readonly grounded: boolean;
+  /** What the avatar did this tick; animations (M1-10) pick a clip by it. */
+  readonly mode: MovementMode;
+  readonly crouched: boolean;
+  /** Horizontal speed over the last tick, metres per second. */
+  readonly speed: number;
 }
 
 export interface Vec3 {
@@ -49,6 +56,8 @@ export interface SimState {
   readonly respawns: number;
   readonly avatar: AvatarState;
   readonly aim: AimState;
+  /** What this player may do now; the client uses it only for hints. */
+  readonly abilities: Abilities;
 }
 
 /**
@@ -66,6 +75,17 @@ export interface SimSnapshot {
   /** Look direction of the last tick, radians (yaw wrapped, pitch clamped). */
   readonly yaw: number;
   readonly pitch: number;
+  readonly crouched: boolean;
+  readonly mode: MovementMode;
+  readonly speed: number;
+  /** Horizontal velocity, kept through the air. */
+  readonly vx: number;
+  readonly vz: number;
+  /** Speed the avatar left the ground with: the most it can steer to in the air. */
+  readonly takeoffSpeed: number;
+  readonly ticksSinceGround: number;
+  readonly ticksSinceJumpPress: number;
+  readonly abilities: Abilities;
 }
 
 export interface Sim {
@@ -74,6 +94,12 @@ export interface Sim {
   state: () => SimState;
   snapshot: () => SimSnapshot;
   restore: (snapshot: SimSnapshot) => void;
+  /**
+   * Changes what the player may do, from the next tick. Call it only between
+   * ticks: in M2 it comes as a server event with a tick number, applied the
+   * same way on the client and the server.
+   */
+  setAbilities: (abilities: Abilities) => void;
   /**
    * Read-only ray query that ignores the avatar, e.g. for the camera's spring
    * arm. Returns the distance to the first hit, or null. Doesn't change the world.

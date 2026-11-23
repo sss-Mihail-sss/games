@@ -83,7 +83,7 @@ export function buildWorld(R: Rapier, dt: number): ScenarioWorld {
 const IDENTITY = { x: 0, y: 0, z: 0, w: 1 };
 
 function normalize(v: { x: number; y: number; z: number }) {
-  const length = Math.hypot(v.x, v.y, v.z);
+  const length = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
   return { x: v.x / length, y: v.y / length, z: v.z / length };
 }
 

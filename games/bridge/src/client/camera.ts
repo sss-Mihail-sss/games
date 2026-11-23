@@ -20,6 +20,8 @@ export interface ShoulderCamera {
     feet: Vec3,
     yaw: number,
     pitch: number,
+    /** `shoulderScale(crouched)`, smoothed by the caller. */
+    heightScale: number,
     castRay: Sim["castRay"],
   ) => void;
 }
@@ -36,8 +38,8 @@ export function createShoulderCamera(): ShoulderCamera {
 
   return {
     camera,
-    follow: (feet, yaw, pitch, castRay) => {
-      const { origin, direction } = aimRay(feet, yaw, pitch);
+    follow: (feet, yaw, pitch, heightScale, castRay) => {
+      const { origin, direction } = aimRay(feet, yaw, pitch, heightScale);
       const back = { x: -direction.x, y: -direction.y, z: -direction.z };
 
       // Spring arm: if the bank is between the pivot and the camera, come closer
