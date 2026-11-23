@@ -4,5 +4,8 @@ export {
   decodeInputFrame,
   encodeInputFrame,
   InputFrameDecodeError,
+  quantizeYaw,
+  YAW_STEPS,
+  yawToRadians,
 } from "./input-frame/index.ts";
 export type { Actions, InputFrame } from "./input-frame/index.ts";

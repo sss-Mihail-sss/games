@@ -11,7 +11,11 @@
     "typecheck": "bun check"
   },
   "dependencies": {
+    "three": "catalog:",
     "@repo/game-core": "workspace:*",
     "@repo/game-protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/three": "catalog:"
   }
 }

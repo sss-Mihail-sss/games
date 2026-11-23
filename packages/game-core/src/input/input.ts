@@ -81,8 +81,14 @@ export function createInput<const A extends readonly string[]>({
   target.addEventListener("blur", releaseAll, { signal });
 
   return {
-    sample(tick) {
-      const frame: InputFrame = { tick, held: heldMask(), pressed, released };
+    sample(tick, yaw) {
+      const frame: InputFrame = {
+        tick,
+        held: heldMask(),
+        pressed,
+        released,
+        yaw,
+      };
       pressed = 0;
       released = 0;
       return frame;

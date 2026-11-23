@@ -25,7 +25,7 @@ function setup(bindings = defaultBindings) {
     target.dispatchEvent(key("keydown", code, repeat));
   const up = (code: string) => target.dispatchEvent(key("keyup", code));
   const blur = () => target.dispatchEvent(new Event("blur"));
-  const sample = () => input.sample(tick++);
+  const sample = () => input.sample(tick++, 0);
 
   return { target, input, down, up, blur, sample };
 }
@@ -78,7 +78,14 @@ describe("createInput", () => {
   test("passes the tick number through", () => {
     const { input } = setup();
 
-    expect(input.sample(7).tick).toBe(7);
+    expect(input.sample(7, 0).tick).toBe(7);
+  });
+
+  test("passes the yaw through unchanged", () => {
+    const { input } = setup();
+
+    expect(input.sample(0, 12345).yaw).toBe(12345);
+    expect(input.sample(1, 0).yaw).toBe(0);
   });
 
   test("key auto-repeat does not produce new presses", () => {
@@ -130,7 +137,13 @@ describe("createInput", () => {
     const { up, sample } = setup();
     up("KeyW");
 
-    expect(sample()).toEqual({ tick: 0, held: 0, pressed: 0, released: 0 });
+    expect(sample()).toEqual({
+      tick: 0,
+      held: 0,
+      pressed: 0,
+      released: 0,
+      yaw: 0,
+    });
   });
 
   describe("two keys bound to one action", () => {
@@ -241,7 +254,13 @@ describe("createInput", () => {
     down("KeyW");
     blur();
 
-    expect(sample()).toEqual({ tick: 0, held: 0, pressed: 0, released: 0 });
+    expect(sample()).toEqual({
+      tick: 0,
+      held: 0,
+      pressed: 0,
+      released: 0,
+      yaw: 0,
+    });
   });
 
   test("masks stay valid uint32 with an action on bit 31", () => {
@@ -255,7 +274,7 @@ describe("createInput", () => {
       target,
     });
     target.dispatchEvent(key("keydown", "KeyX"));
-    const frame = input.sample(0);
+    const frame = input.sample(0, 0);
 
     expect(frame.held).toBe(2 ** 31);
     expect(frame.pressed).toBe(2 ** 31);

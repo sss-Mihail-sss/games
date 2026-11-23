@@ -5,3 +5,4 @@ export {
   InputFrameDecodeError,
 } from "./codec.ts";
 export type { Actions, InputFrame } from "./type.ts";
+export { quantizeYaw, YAW_STEPS, yawToRadians } from "./yaw.ts";

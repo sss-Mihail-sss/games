@@ -3,6 +3,8 @@ export interface InputFrame {
   held: number;
   pressed: number;
   released: number;
+  /** Camera yaw in wire units (`quantizeYaw`), an integer in `0…YAW_STEPS - 1`. */
+  yaw: number;
 }
 
 export interface Actions<A extends readonly string[] = readonly string[]> {

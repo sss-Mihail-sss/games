@@ -1,32 +1,87 @@
-import { defineGame } from "@repo/game-core";
+import { createFixedLoop, createInput, defineGame } from "@repo/game-core";
+import type { Bindings } from "@repo/game-core";
+import { quantizeYaw } from "@repo/game-protocol";
 
 import { manifest } from "../manifest.ts";
+import { actions, createInitialState, step, TICK_RATE } from "../sim/index.ts";
+import type { SimState } from "../sim/index.ts";
+import { createFollowCamera } from "./camera.ts";
+import { lerp, lerpAngle } from "./interpolate.ts";
+import { createView } from "./renderer.ts";
+import { createWorld } from "./scene.ts";
 
-/**
- * Placeholder client for M0-05: proves the shell can load, mount and fully
- * dispose a WebGL game. M0-06 replaces it with the real Three.js scene.
- */
+const DEFAULT_BINDINGS: Bindings<typeof actions.list> = {
+  forward: ["Key:KeyW", "Key:ArrowUp"],
+  back: ["Key:KeyS", "Key:ArrowDown"],
+  left: ["Key:KeyA", "Key:ArrowLeft"],
+  right: ["Key:KeyD", "Key:ArrowRight"],
+};
+
 export default defineGame({
   manifest,
-  mount: (element, { signal }) => {
-    const canvas = document.createElement("canvas");
-    canvas.style.display = "block";
-    canvas.style.width = "100%";
-    canvas.style.height = "100%";
-    element.append(canvas);
+  mount: (element, { signal, settings, log }) => {
+    // Two sim states: render() blends between them by the loop's alpha, so
+    // movement is smooth at any refresh rate although the sim ticks at 30 Hz.
+    let previous: SimState = createInitialState();
+    let current = previous;
 
-    const gl = canvas.getContext("webgl2");
-    gl?.clearColor(0.2, 0.4, 0.8, 1);
-    gl?.clear(gl.COLOR_BUFFER_BIT);
+    const world = createWorld();
+    // The camera starts behind the avatar, so W walks towards the gap.
+    const view = createFollowCamera(current.avatar.facing);
+    const screen = createView(element, view.camera, settings);
+    view.listen(screen.canvas);
+    const input = createInput({ actions, bindings: DEFAULT_BINDINGS });
 
+    const loop = createFixedLoop({
+      tickRate: TICK_RATE,
+      update: (tick, dt) => {
+        previous = current;
+        current = step(current, input.sample(tick, quantizeYaw(view.yaw)), dt);
+      },
+      render: (alpha) => {
+        const from = previous.avatar;
+        const to = current.avatar;
+        const x = lerp(from.x, to.x, alpha);
+        const z = lerp(from.z, to.z, alpha);
+
+        world.avatar.position.set(x, 0, z);
+        world.avatar.rotation.y = lerpAngle(from.facing, to.facing, alpha);
+        view.follow(x, z);
+        screen.renderer.render(world.scene, view.camera);
+      },
+    });
+    loop.start();
+
+    // Reverse order of creation. It guards itself: defineGame only wraps the
+    // function we *return*, so the early call below would otherwise run twice
+    // (here, then again from mountGame through the wrapper).
+    let disposed = false;
     const unmount = () => {
-      // Release the GPU context right away instead of waiting for GC:
-      // otherwise Chrome warns "Too many active WebGL contexts" after a few visits.
-      gl?.getExtension("WEBGL_lose_context")?.loseContext();
-      canvas.remove();
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      loop.stop();
+      input.dispose();
+      view.dispose();
+      // Dev check: every geometry the scene uploaded must be gone before the renderer goes.
+      const memory = screen.renderer.info.memory;
+      const before = { ...memory };
+      world.dispose();
+      if (process.env.NODE_ENV !== "production") {
+        // Textures are only reported: Three keeps its own (the 16×16 DFG_LUT of PBR
+        // materials) until renderer.dispose(), so 1 → 1 here is not a leak.
+        const message = `GPU after scene dispose: geometries ${before.geometries} → ${memory.geometries}, textures ${before.textures} → ${memory.textures}`;
+        if (memory.geometries === 0) {
+          log.info(message);
+        } else {
+          log.warn(message);
+        }
+      }
+      screen.dispose(); // ResizeObserver, settings, renderer, context, canvas
     };
 
-    // The shell may already have left the page; don't keep a context nobody needs.
+    // The shell may have left the page while we were setting up.
     if (signal.aborted) {
       unmount();
     }
