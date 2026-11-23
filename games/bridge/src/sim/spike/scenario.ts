@@ -1,11 +1,12 @@
-// M1-01 spike: one deterministic world, run the same way in Bun, the browser and CI.
+// M1-01: one deterministic world, run the same way in Bun, the browser and CI.
+// Kept after the spike as a regression test of cross-platform determinism.
 // No DOM, no three: it lives in sim and must run on the server too.
-import type * as RapierCompat from "@dimforge/rapier3d-compat";
+import type RAPIER from "@dimforge/rapier3d-deterministic-compat";
 
 import { LEVEL } from "../sim.ts";
 
-/** Both builds share this API; only loading differs. */
-export type Rapier = typeof RapierCompat;
+/** The module as `import RAPIER from …` gives it (after `await RAPIER.init()`). */
+export type Rapier = typeof RAPIER;
 type World = InstanceType<Rapier["World"]>;
 
 export const PLANKS = 50;

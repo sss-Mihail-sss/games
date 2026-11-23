@@ -15,8 +15,7 @@ import { dirname, extname, relative, resolve } from "node:path";
  */
 const ALLOWED_PACKAGES = new Set([
   "@repo/game-protocol",
-  // M1-01 spike: both builds while we measure; the loser goes in step 8.
-  "@dimforge/rapier3d-compat",
+  // Physics (M1-01): the deterministic build, so client and server agree bit for bit.
   "@dimforge/rapier3d-deterministic-compat",
 ]);
 const ALLOWED_IN_TESTS = new Set(["bun:test", "node:path"]);
