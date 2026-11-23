@@ -1,91 +1,64 @@
-import { PerspectiveCamera } from "three";
+import { PerspectiveCamera, Vector3 } from "three";
 
-/** Radians per pixel of mouse movement. */
-const SENSITIVITY = 0.005;
-/** Metres behind and above the avatar, and the height it looks at. */
-const DISTANCE = 7;
-const HEIGHT = 4;
-const LOOK_AT_HEIGHT = 1.2;
+import { aimRay } from "../sim/index.ts";
+import type { Sim, Vec3 } from "../sim/index.ts";
 
-export interface FollowCamera {
+/** Metres from the aim pivot (behind the shoulder) back to the camera. */
+export const CAMERA_DISTANCE = 3.5;
+/** How far in front of a wall the camera stops, and how close it may come. */
+const WALL_MARGIN = 0.2;
+const MIN_DISTANCE = 0.3;
+
+export interface ShoulderCamera {
   camera: PerspectiveCamera;
-  /** Radians, the same convention as the sim: 0 looks along −Z. */
-  readonly yaw: number;
-  /** Turns the camera by dragging on `surface`. Listeners go away with `dispose`. */
-  listen: (surface: HTMLElement) => void;
-  /** Places the camera behind the avatar's feet at (x, y, z); call every frame. */
-  follow: (x: number, y: number, z: number) => void;
-  dispose: () => void;
+  /**
+   * Puts the camera on the aim ray, behind the pivot, looking along it: the
+   * screen centre is then exactly the sim's aim. Call every frame with the
+   * interpolated feet position and the live look from the input.
+   */
+  follow: (
+    feet: Vec3,
+    yaw: number,
+    pitch: number,
+    castRay: Sim["castRay"],
+  ) => void;
 }
 
 /**
- * Third-person camera. It turns per frame (smooth on any monitor), while its yaw
- * reaches the sim per tick through the InputFrame. That's why OrbitControls won't
- * do: they own the rotation, and the sim would never see it.
+ * Third-person camera over the right shoulder. It doesn't own its rotation:
+ * yaw and pitch come from the input (mouse), which also puts them into every
+ * InputFrame, so the sim aims along the very same ray (see `aimRay`).
  */
-export function createFollowCamera(initialYaw: number): FollowCamera {
-  const camera = new PerspectiveCamera(60, 1, 0.1, 300);
-  const controller = new AbortController();
-  let yaw = initialYaw;
-  let dragging: number | null = null;
+export function createShoulderCamera(): ShoulderCamera {
+  // A short near plane: the spring arm may bring the camera close to walls.
+  const camera = new PerspectiveCamera(60, 1, 0.05, 300);
+  const target = new Vector3(); // reused: follow() runs every frame
 
   return {
     camera,
-    get yaw() {
-      return yaw;
-    },
-    listen: (surface) => {
-      const { signal } = controller;
-      surface.style.touchAction = "none";
-      surface.style.cursor = "grab";
+    follow: (feet, yaw, pitch, castRay) => {
+      const { origin, direction } = aimRay(feet, yaw, pitch);
+      const back = { x: -direction.x, y: -direction.y, z: -direction.z };
 
-      surface.addEventListener(
-        "pointerdown",
-        (event) => {
-          if (event.button !== 0 || dragging !== null) {
-            return;
-          }
-          dragging = event.pointerId;
-          // Keep getting moves even when the pointer leaves the canvas mid-drag.
-          surface.setPointerCapture(event.pointerId);
-          surface.style.cursor = "grabbing";
-        },
-        { signal },
-      );
-      surface.addEventListener(
-        "pointermove",
-        (event) => {
-          if (event.pointerId === dragging) {
-            yaw -= event.movementX * SENSITIVITY; // drag right → look right
-          }
-        },
-        { signal },
-      );
-      const stop = (event: PointerEvent) => {
-        if (event.pointerId === dragging) {
-          dragging = null;
-          surface.style.cursor = "grab";
-        }
-      };
-      for (const type of [
-        "pointerup",
-        "pointercancel",
-        "lostpointercapture",
-      ] as const) {
-        surface.addEventListener(type, stop, { signal });
-      }
-    },
-    follow: (x, y, z) => {
-      // Behind = the opposite of forward (−sin, −cos).
+      // Spring arm: if the bank is between the pivot and the camera, come closer
+      // instead of looking from inside it.
+      const wall = castRay(origin, back, CAMERA_DISTANCE);
+      const distance =
+        wall === null
+          ? CAMERA_DISTANCE
+          : Math.max(MIN_DISTANCE, wall - WALL_MARGIN);
+
       camera.position.set(
-        x + Math.sin(yaw) * DISTANCE,
-        y + HEIGHT,
-        z + Math.cos(yaw) * DISTANCE,
+        origin.x + back.x * distance,
+        origin.y + back.y * distance,
+        origin.z + back.z * distance,
       );
-      camera.lookAt(x, y + LOOK_AT_HEIGHT, z);
-    },
-    dispose: () => {
-      controller.abort();
+      target.set(
+        origin.x + direction.x,
+        origin.y + direction.y,
+        origin.z + direction.z,
+      );
+      camera.lookAt(target);
     },
   };
 }
