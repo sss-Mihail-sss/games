@@ -310,7 +310,9 @@ export function createSim(R: Rapier, options: SimOptions = {}): Sim {
       substep(vx, vz);
     }
     const after = body.translation();
-    speed = Math.hypot(after.x - before.x, after.z - before.z) * TICK_RATE;
+    const dx = after.x - before.x;
+    const dz = after.z - before.z;
+    speed = Math.sqrt(dx * dx + dz * dz) * TICK_RATE;
     ticksSinceGround = grounded
       ? 0
       : Math.min(ticksSinceGround + 1, COUNTER_CAP);
@@ -435,6 +437,6 @@ function walkDirection(frame: InputFrame): { dx: number; dz: number } | null {
   // forward = (−sin, −cos), right = (cos, −sin) on the XZ plane.
   const dx = -sin * along + cos * across;
   const dz = -cos * along - sin * across;
-  const length = Math.hypot(dx, dz); // √2 on a diagonal: normalise it away
+  const length = Math.sqrt(dx * dx + dz * dz); // √2 on a diagonal: normalise it away
   return { dx: dx / length, dz: dz / length };
 }

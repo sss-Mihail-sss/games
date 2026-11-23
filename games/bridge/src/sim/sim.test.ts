@@ -51,14 +51,11 @@ function withSim(body: (sim: Sim) => void) {
   }
 }
 
-const moved = (from: SimState, to: SimState) => ({
-  x: to.avatar.x - from.avatar.x,
-  z: to.avatar.z - from.avatar.z,
-  distance: Math.hypot(
-    to.avatar.x - from.avatar.x,
-    to.avatar.z - from.avatar.z,
-  ),
-});
+const moved = (from: SimState, to: SimState) => {
+  const x = to.avatar.x - from.avatar.x;
+  const z = to.avatar.z - from.avatar.z;
+  return { x, z, distance: Math.sqrt(x * x + z * z) };
+};
 
 /** The camera yaw that looks along +X, across the gap. */
 const TOWARDS_GAP = -Math.PI / 2;
@@ -313,8 +310,10 @@ describe("determinism", () => {
    * M1-03 (f81faa93 → 8012b949): the session gained pitch and the aim ray.
    * M1-09 (→ aa2c8c63): jumps, sprint, crouch and sneak in the script, mode,
    * crouch and speed in the record, and air momentum changed falling.
+   * Then (→ 9dfca13c) Math.hypot became Math.sqrt(x² + z²): on macOS arm64
+   * hypot was off by one bit from Linux, and `speed` feeds the air steering.
    */
-  const GOLDEN = "aa2c8c63";
+  const GOLDEN = "9dfca13c";
 
   test("a scripted session matches the golden hash", () => {
     const sim = createSim(R);

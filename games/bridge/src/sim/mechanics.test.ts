@@ -65,7 +65,9 @@ function speedOf(held: Action[], options: SimOptions = {}) {
   withSim((sim) => {
     const before = sim.state().avatar;
     const after = run(sim, frame(["forward", ...held]), TICK_RATE).avatar;
-    distance = Math.hypot(after.x - before.x, after.z - before.z);
+    const dx = after.x - before.x;
+    const dz = after.z - before.z;
+    distance = Math.sqrt(dx * dx + dz * dz);
   }, options);
   return distance;
 }
