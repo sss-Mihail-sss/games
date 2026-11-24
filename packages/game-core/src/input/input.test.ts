@@ -495,6 +495,134 @@ describe("createInput", () => {
       expect(onUnlock).toHaveBeenCalledTimes(1);
     });
 
+    /**
+     * Safari (WebKit) on Esc: the keydown reaches the page while the lock is
+     * still held, the unlock comes later, in a task. If WebKit's unlock request
+     * "fails" (the UI process had already let go), there is no
+     * `pointerlockchange` at all: only `pointerlockerror`, and
+     * `pointerLockElement` is null.
+     */
+    describe("Safari", () => {
+      const esc = () => key("keydown", "Escape");
+
+      /**
+       * WebKit's exitPointerLock(): the lock goes in a later task, which
+       * `flush()` runs.
+       */
+      function asyncUnlock(doc: FakeDocument, event = "pointerlockchange") {
+        const tasks: (() => void)[] = [];
+        const exit = mock(() => {
+          tasks.push(() => {
+            doc.pointerLockElement = null;
+            doc.dispatchEvent(new Event(event));
+          });
+        });
+        doc.exitPointerLock = exit;
+        const flush = () => {
+          for (const task of tasks.splice(0)) {
+            task();
+          }
+        };
+        return { exit, flush };
+      }
+
+      test("Esc keydown while locked asks to unlock, and pauses once", () => {
+        const onUnlock = mock(() => {});
+        const { input, target, click, doc } = setupPointer({ onUnlock });
+        click();
+        const { exit, flush } = asyncUnlock(doc);
+
+        target.dispatchEvent(esc());
+        expect(exit).toHaveBeenCalledTimes(1);
+        expect(input.locked).toBe(true); // nothing has happened yet
+
+        flush();
+        expect(input.locked).toBe(false);
+        expect(onUnlock).toHaveBeenCalledTimes(1);
+      });
+
+      test("an unlock reported only by pointerlockerror still pauses", () => {
+        const onUnlock = mock(() => {});
+        const { input, target, click, doc } = setupPointer({ onUnlock });
+        click();
+        target.dispatchEvent(key("keydown", "KeyW"));
+        input.sample(0);
+
+        doc.pointerLockElement = null;
+        doc.dispatchEvent(new Event("pointerlockerror"));
+
+        expect(input.locked).toBe(false);
+        expect(onUnlock).toHaveBeenCalledTimes(1);
+        const frame = input.sample(1);
+        expect(frame.held).toBe(0);
+        expect(actions.wasReleased(frame, "moveForward")).toBe(true);
+      });
+
+      test("Esc, then only pointerlockerror: pauses once", () => {
+        const onUnlock = mock(() => {});
+        const { input, target, click, doc } = setupPointer({ onUnlock });
+        click();
+        const { flush } = asyncUnlock(doc, "pointerlockerror");
+
+        target.dispatchEvent(esc());
+        flush();
+
+        expect(input.locked).toBe(false);
+        expect(onUnlock).toHaveBeenCalledTimes(1);
+      });
+
+      test("a lock lost without any event is noticed on the next sample", () => {
+        const onUnlock = mock(() => {});
+        const { input, target, click, doc } = setupPointer({ onUnlock });
+        click();
+        target.dispatchEvent(key("keydown", "KeyW"));
+        input.sample(0);
+
+        doc.pointerLockElement = null; // no event at all
+        const frame = input.sample(1);
+
+        expect(onUnlock).toHaveBeenCalledTimes(1);
+        expect(input.locked).toBe(false);
+        expect(frame.held).toBe(0);
+        expect(actions.wasReleased(frame, "moveForward")).toBe(true);
+        input.sample(2);
+        expect(onUnlock).toHaveBeenCalledTimes(1);
+      });
+
+      test("a silently lost lock stops the mouse from turning", () => {
+        const onUnlock = mock(() => {});
+        const { input, click, doc, move } = setupPointer({ onUnlock });
+        click();
+
+        doc.pointerLockElement = null;
+        move(100, 0);
+
+        expect(input.look().yaw).toBe(0);
+        expect(onUnlock).toHaveBeenCalledTimes(1);
+      });
+
+      test("Esc while not locked does nothing", () => {
+        const { target, doc } = setupPointer();
+        const { exit } = asyncUnlock(doc);
+
+        target.dispatchEvent(esc());
+
+        expect(exit).not.toHaveBeenCalled();
+      });
+
+      test("pointerlockerror from a refused raw-movement attempt is not an unlock", async () => {
+        // WebKit without an external mouse: { unadjustedMovement: true } is
+        // refused with a pointerlockerror, then the retry locks.
+        const onUnlock = mock(() => {});
+        const { input, doc } = setupPointer({ onUnlock });
+
+        expect(await input.lock()).toBe(true);
+        doc.dispatchEvent(new Event("pointerlockerror")); // the late error task
+        expect(input.locked).toBe(true);
+        expect(onUnlock).not.toHaveBeenCalled();
+      });
+    });
+
     test("without pointer, lock() is a no-op that resolves true", async () => {
       const input = createInput({
         actions,

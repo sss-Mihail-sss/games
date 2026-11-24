@@ -1,9 +1,29 @@
 import { TICK_RATE } from "../sim/index.ts";
-import type { SimState } from "../sim/index.ts";
+import type { MovementMode, SimState } from "../sim/index.ts";
 
 /** Clip names: part of every avatar model's contract (see avatar-model.ts). */
-export const AVATAR_ANIMATIONS = ["idle", "walk", "fall"] as const;
+export const AVATAR_ANIMATIONS = [
+  "idle",
+  "walk",
+  "run",
+  "sneak",
+  "crouch",
+  "crouchWalk",
+  "jump",
+  "fall",
+] as const;
 export type AvatarAnimation = (typeof AVATAR_ANIMATIONS)[number];
+
+/** Played once and held on the last pose; every other clip loops. */
+export const ONE_SHOT_ANIMATIONS: readonly AvatarAnimation[] = ["jump"];
+
+/** Clips that step: they play only while the avatar actually moves. */
+const GAITS: readonly AvatarAnimation[] = [
+  "walk",
+  "run",
+  "sneak",
+  "crouchWalk",
+];
 
 /** What the avatar did during the last tick, in m/s. */
 export interface AvatarMotion {
@@ -12,6 +32,10 @@ export interface AvatarMotion {
   /** Vertical speed, positive up. */
   readonly vy: number;
   readonly grounded: boolean;
+  /** How the sim moved the avatar this tick (M1-09). */
+  readonly mode: MovementMode;
+  /** The capsule is short: a crouch, or still under a beam after letting go. */
+  readonly crouched: boolean;
 }
 
 /**
@@ -25,22 +49,39 @@ export function motionBetween(
   current: SimState,
 ): AvatarMotion {
   const { avatar } = current;
+  const { grounded, mode, crouched } = avatar;
   if (current.respawns !== previous.respawns) {
-    return { speed: 0, vy: 0, grounded: avatar.grounded };
+    return { speed: 0, vy: 0, grounded, mode, crouched };
   }
   return {
     speed: avatar.speed,
     vy: (avatar.y - previous.avatar.y) * TICK_RATE,
-    grounded: avatar.grounded,
+    grounded,
+    mode,
+    crouched,
   };
 }
 
 /**
- * Walk starts above WALK_ENTER and stops below WALK_EXIT. One threshold would
- * flicker between idle and walk whenever the speed hovers around it.
+ * A gait starts above WALK_ENTER and stops below WALK_EXIT. One threshold
+ * would flicker between standing and stepping whenever the speed hovers
+ * around it.
  */
 export const WALK_ENTER = 0.5;
 export const WALK_EXIT = 0.3;
+
+/** Moving enough to step. Switching from one gait to another keeps the lower threshold. */
+function stepping(motion: AvatarMotion, current: AvatarAnimation): boolean {
+  return motion.speed > (GAITS.includes(current) ? WALK_EXIT : WALK_ENTER);
+}
+
+/**
+ * Vertical speed, m/s, below which the avatar flails (`fall`). An ordinary
+ * jump lands at about −4.6 m/s (the take-off speed, MOVEMENT.jumpHeight), so
+ * it never gets there: it keeps the tuck all the way down. Reached after
+ * dropping ~2.5 m, i.e. off a ledge or into the water.
+ */
+export const FALL_VY = -7;
 
 export interface AnimationRule {
   readonly animation: AvatarAnimation;
@@ -50,17 +91,34 @@ export interface AnimationRule {
 
 /**
  * Checked in order; the first rule that matches wins, so the last one must
- * always match. Movement abilities (M1-09) come in as rules before `walk`:
- * `jump` (airborne and rising), `crouch` and `run`, with the fields they need
- * added to AvatarMotion from SimState.
+ * always match. In the air: fall once dropping faster than FALL_VY (and until
+ * landing: a respawn mid-fall has vy = 0 for a tick), otherwise jump, which
+ * holds its tuck. On the ground the crouch comes first (a crouched avatar
+ * can't sprint or sneak), then the gaits by the sim's mode, then walk and idle.
  */
 export const ANIMATION_RULES: readonly AnimationRule[] = [
-  { animation: "fall", when: (motion) => !motion.grounded },
   {
-    animation: "walk",
+    animation: "fall",
     when: (motion, current) =>
-      motion.speed > (current === "walk" ? WALK_EXIT : WALK_ENTER),
+      !motion.grounded && (current === "fall" || motion.vy < FALL_VY),
   },
+  { animation: "jump", when: (motion) => !motion.grounded },
+  {
+    animation: "crouchWalk",
+    when: (motion, current) => motion.crouched && stepping(motion, current),
+  },
+  { animation: "crouch", when: (motion) => motion.crouched },
+  {
+    animation: "run",
+    when: (motion, current) =>
+      motion.mode === "sprint" && stepping(motion, current),
+  },
+  {
+    animation: "sneak",
+    when: (motion, current) =>
+      motion.mode === "sneak" && stepping(motion, current),
+  },
+  { animation: "walk", when: stepping },
   { animation: "idle", when: () => true },
 ];
 

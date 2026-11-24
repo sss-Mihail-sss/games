@@ -66,7 +66,7 @@ const ABILITY_LABELS = {
   sneak: "ходьба крадучись",
 } as const satisfies Record<keyof Abilities, string>;
 
-/** How fast the crouch picture and camera follow the sim, per second. */
+/** How fast the camera follows a crouch in the sim, per second. */
 const CROUCH_EASE = 14;
 
 const dev = process.env.NODE_ENV !== "production";
@@ -187,7 +187,8 @@ export default defineGame({
       const y = lerp(from.y, to.y, alpha);
       const z = lerp(from.z, to.z, alpha);
 
-      // The crouch snaps in the sim; the picture and camera ease into it.
+      // The crouch snaps in the sim; the camera eases into it (the model
+      // crouches with its own clip, see animation.ts).
       const now = performance.now();
       const ease = Math.min(1, ((now - lastFrame) / 1000) * CROUCH_EASE);
       lastFrame = now;
@@ -195,8 +196,6 @@ export default defineGame({
 
       world.avatar.position.set(x, y, z);
       world.avatar.rotation.y = lerpAngle(from.facing, to.facing, alpha);
-      // Squashes the model too, until it gets a crouch clip: a rule in animation.ts.
-      world.avatar.scale.y = heightScale;
       avatar?.render();
       // The live look, not the tick's quantized one: turning stays smooth at
       // any refresh rate. The sim gets the same angles, quantized, every tick.

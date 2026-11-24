@@ -1,9 +1,17 @@
 import { describe, expect, test } from "bun:test";
 
-import { ALL_ABILITIES, TICK_RATE } from "../sim/index.ts";
+import {
+  ALL_ABILITIES,
+  GRAVITY,
+  jumpVelocity,
+  MOVEMENT,
+  PHYSICS_DT,
+  TICK_RATE,
+} from "../sim/index.ts";
 import type { AvatarState, SimState } from "../sim/index.ts";
 import {
   ANIMATION_RULES,
+  FALL_VY,
   motionBetween,
   nextAnimation,
   WALK_ENTER,
@@ -35,8 +43,27 @@ function state(avatar: Partial<AvatarState>, respawns = 0): SimState {
   };
 }
 
-const standing: AvatarMotion = { speed: 0, vy: 0, grounded: true };
+const standing: AvatarMotion = {
+  speed: 0,
+  vy: 0,
+  grounded: true,
+  mode: "walk",
+  crouched: false,
+};
 const moving = (speed: number): AvatarMotion => ({ ...standing, speed });
+const airborne = (vy: number): AvatarMotion => ({
+  ...standing,
+  speed: 4,
+  vy,
+  grounded: false,
+  mode: "air",
+});
+const crouching = (speed: number): AvatarMotion => ({
+  ...standing,
+  speed,
+  mode: "crouch",
+  crouched: true,
+});
 
 describe("motionBetween", () => {
   test("horizontal speed is the sim's own", () => {
@@ -67,7 +94,23 @@ describe("motionBetween", () => {
       state({ x: -10, y: 0, z: 0, speed: 99 }, 1),
     );
 
-    expect(motion).toEqual({ speed: 0, vy: 0, grounded: true });
+    expect(motion).toEqual({
+      speed: 0,
+      vy: 0,
+      grounded: true,
+      mode: "walk",
+      crouched: false,
+    });
+  });
+
+  test("mode and crouch come from the sim", () => {
+    const motion = motionBetween(
+      state({}),
+      state({ mode: "crouch", crouched: true, speed: 2 }),
+    );
+
+    expect(motion.mode).toBe("crouch");
+    expect(motion.crouched).toBe(true);
   });
 });
 
@@ -82,12 +125,93 @@ describe("nextAnimation", () => {
     expect(nextAnimation("idle", moving(4))).toBe("walk");
   });
 
-  test("off the ground is fall, whatever the speed", () => {
-    const airborne = { speed: 4, vy: -3, grounded: false };
+  test("off the ground is jump until dropping faster than FALL_VY", () => {
+    expect(nextAnimation("idle", airborne(4.6))).toBe("jump");
+    expect(nextAnimation("run", airborne(4.6))).toBe("jump");
+    expect(nextAnimation("crouch", airborne(4.6))).toBe("jump");
+    // Over the top and coming down: still the tuck, no flailing.
+    expect(nextAnimation("jump", airborne(0))).toBe("jump");
+    expect(nextAnimation("jump", airborne(FALL_VY + 0.1))).toBe("jump");
+    // Walking off a step is a short drop, not a fall.
+    expect(nextAnimation("walk", airborne(-1))).toBe("jump");
+  });
 
-    expect(nextAnimation("idle", airborne)).toBe("fall");
-    expect(nextAnimation("walk", airborne)).toBe("fall");
-    expect(nextAnimation("fall", { ...airborne, speed: 0 })).toBe("fall");
+  test("dropping faster than FALL_VY is fall, whatever the speed", () => {
+    expect(nextAnimation("jump", airborne(FALL_VY - 0.1))).toBe("fall");
+    expect(nextAnimation("walk", airborne(-9))).toBe("fall");
+    expect(nextAnimation("fall", { ...airborne(-9), speed: 0 })).toBe("fall");
+  });
+
+  test("fall holds until landing, even through a respawn tick (vy = 0)", () => {
+    expect(nextAnimation("fall", airborne(0))).toBe("fall");
+    expect(nextAnimation("fall", standing)).toBe("idle");
+  });
+
+  test("an ordinary jump never reaches FALL_VY", () => {
+    // Landing at the take-off height, it comes down as fast as it went up.
+    const takeoff = jumpVelocity(MOVEMENT.jumpHeight, GRAVITY, PHYSICS_DT);
+
+    expect(-takeoff).toBeGreaterThan(FALL_VY);
+  });
+
+  test("a whole jump: rise, come down tucked, land", () => {
+    const ticks = [moving(4), airborne(4.5), airborne(2), airborne(-1)];
+    const seen = [];
+    let animation = nextAnimation("idle", standing);
+    for (const motion of [...ticks, airborne(-4.5), moving(4), standing]) {
+      animation = nextAnimation(animation, motion);
+      seen.push(animation);
+    }
+
+    expect(seen).toEqual([
+      "walk",
+      "jump",
+      "jump",
+      "jump",
+      "jump",
+      "walk",
+      "idle",
+    ]);
+  });
+
+  test("crouched is crouch, or crouchWalk while moving", () => {
+    expect(nextAnimation("idle", crouching(0))).toBe("crouch");
+    expect(nextAnimation("walk", crouching(2))).toBe("crouchWalk");
+    expect(nextAnimation("crouchWalk", crouching(0))).toBe("crouch");
+    // Still under a beam after letting go of the key: the sim keeps it crouched.
+    expect(nextAnimation("crouch", { ...crouching(0), mode: "walk" })).toBe(
+      "crouch",
+    );
+  });
+
+  test("sprinting is run, sneaking is sneak, but only while moving", () => {
+    const sprint = (speed: number): AvatarMotion => ({
+      ...moving(speed),
+      mode: "sprint",
+    });
+    const sneak = (speed: number): AvatarMotion => ({
+      ...moving(speed),
+      mode: "sneak",
+    });
+
+    expect(nextAnimation("walk", sprint(6.5))).toBe("run");
+    expect(nextAnimation("idle", sprint(6.5))).toBe("run");
+    // Against a wall with Shift held: the sim says sprint, nothing moves.
+    expect(nextAnimation("idle", sprint(0))).toBe("idle");
+    expect(nextAnimation("walk", sneak(1.5))).toBe("sneak");
+    expect(nextAnimation("sneak", sneak(0))).toBe("idle");
+    // Letting go of Shift drops back to walk.
+    expect(nextAnimation("run", moving(4))).toBe("walk");
+  });
+
+  test("going from one gait to another keeps the lower threshold", () => {
+    const slow = (WALK_ENTER + WALK_EXIT) / 2;
+
+    expect(nextAnimation("walk", { ...moving(slow), mode: "sneak" })).toBe(
+      "sneak",
+    );
+    expect(nextAnimation("sneak", crouching(slow))).toBe("crouchWalk");
+    expect(nextAnimation("idle", crouching(slow))).toBe("crouch");
   });
 
   test("hysteresis: walk starts above WALK_ENTER and stops below WALK_EXIT", () => {
@@ -110,7 +234,7 @@ describe("nextAnimation", () => {
     expect([...seen]).toEqual(["walk"]);
   });
 
-  test("the first matching rule wins (how M1-09 adds jump before walk)", () => {
+  test("the first matching rule wins", () => {
     const rules: AnimationRule[] = [
       { animation: "fall", when: () => true },
       ...ANIMATION_RULES,
@@ -122,8 +246,6 @@ describe("nextAnimation", () => {
   test("the last default rule always matches", () => {
     const last = ANIMATION_RULES.at(-1);
 
-    expect(last?.when({ speed: 99, vy: 99, grounded: false }, "walk")).toBe(
-      true,
-    );
+    expect(last?.when(airborne(99), "walk")).toBe(true);
   });
 });

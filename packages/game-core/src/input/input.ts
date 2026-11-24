@@ -53,7 +53,9 @@ export function createInput<const A extends readonly string[]>({
   const controller = new AbortController();
   const { signal } = controller;
 
-  const mouse = pointer ? createMouseLook(pointer, signal, releaseAll) : null;
+  const mouse = pointer
+    ? createMouseLook(pointer, target, signal, releaseAll)
+    : null;
 
   target.addEventListener(
     "keydown",
@@ -98,6 +100,7 @@ export function createInput<const A extends readonly string[]>({
 
   return {
     sample(tick) {
+      mouse?.sync(); // before the masks: a lost lock releases keys in this frame
       const look = mouse?.look ?? { yaw: 0, pitch: 0 };
       const frame: InputFrame = {
         tick,
@@ -138,6 +141,7 @@ export function createInput<const A extends readonly string[]>({
 /** Pointer lock and mouse look; listeners are removed by `signal`. */
 function createMouseLook(
   options: PointerOptions,
+  keys: EventTarget,
   signal: AbortSignal,
   onUnlock: () => void,
 ) {
@@ -222,14 +226,38 @@ function createMouseLook(
     { signal },
   );
 
-  doc.addEventListener(
-    "pointerlockchange",
-    () => {
-      const was = locked;
-      locked = doc.pointerLockElement === element;
-      if (was && !locked) {
-        onUnlock(); // Esc must not leave W held down
-        options.onUnlock?.();
+  /**
+   * Reads the lock from `pointerLockElement` instead of trusting one event:
+   * WebKit can drop the lock with only a `pointerlockerror` (its unlock
+   * request "failed" because the lock was already gone), so every signal
+   * re-checks, and `sample()` does on every tick as a last resort.
+   */
+  const sync = () => {
+    const was = locked;
+    locked = doc.pointerLockElement === element;
+    if (was && !locked) {
+      onUnlock(); // Esc must not leave W held down
+      options.onUnlock?.();
+    }
+  };
+  doc.addEventListener("pointerlockchange", sync, { signal });
+  doc.addEventListener("pointerlockerror", sync, { signal });
+
+  // Only our own lock: another game or page element may hold it.
+  const release = () => {
+    if (doc.pointerLockElement === element) {
+      doc.exitPointerLock();
+    }
+  };
+
+  // Esc always gives the mouse back (the platform never lets it be bound).
+  // Safari hands the keydown to the page while its own unlock is still on the
+  // way; asking once more makes sure the lock really goes.
+  keys.addEventListener(
+    "keydown",
+    (event) => {
+      if (locked && (event as KeyboardEvent).code === "Escape") {
+        release();
       }
     },
     { signal },
@@ -238,6 +266,7 @@ function createMouseLook(
   doc.addEventListener(
     "mousemove",
     (event) => {
+      sync(); // the cursor is back without a word: stop turning
       if (!locked) {
         return;
       }
@@ -265,11 +294,7 @@ function createMouseLook(
       return locked;
     },
     request,
-    release: () => {
-      // Only our own lock: another game or page element may hold it.
-      if (doc.pointerLockElement === element) {
-        doc.exitPointerLock();
-      }
-    },
+    release,
+    sync,
   };
 }

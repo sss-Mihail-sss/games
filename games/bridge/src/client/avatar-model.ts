@@ -1,4 +1,4 @@
-import { AnimationMixer, LoopRepeat, SkinnedMesh } from "three";
+import { AnimationMixer, LoopOnce, LoopRepeat, SkinnedMesh } from "three";
 import type {
   AnimationAction,
   AnimationClip,
@@ -7,12 +7,13 @@ import type {
 } from "three";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 
-import { WALK_SPEED } from "../sim/index.ts";
+import { MOVEMENT } from "../sim/index.ts";
 import type { SimState } from "../sim/index.ts";
 import {
   AVATAR_ANIMATIONS,
   motionBetween,
   nextAnimation,
+  ONE_SHOT_ANIMATIONS,
 } from "./animation.ts";
 import type { AvatarAnimation } from "./animation.ts";
 import { disposeObject } from "./assets.ts";
@@ -22,13 +23,29 @@ import type { GltfLoader } from "./assets.ts";
  * Avatar models by id. Each URL is a literal on purpose: that is how the bundler
  * finds the file and ships it with a hashed name. A character (M1-11) picks its
  * model from here. Every model follows decision 8 (metres, origin at the feet,
- * forward −Z) and has the clips in AVATAR_ANIMATIONS.
+ * forward −Z) and has the clips in AVATAR_ANIMATIONS, with the gaits timed for
+ * GAIT_SPEEDS.
  */
 export const AVATAR_MODELS = {
   builder: new URL("../../assets/dist/builder.glb", import.meta.url),
 } as const;
 export type AvatarModelId = keyof typeof AVATAR_MODELS;
 export const DEFAULT_AVATAR_MODEL: AvatarModelId = "builder";
+
+/**
+ * The speed, m/s, each stepping clip is timed for: at it the planted foot keeps
+ * pace with the ground. Playback scales with the actual speed, so a slower
+ * character (M1-11) or a slope takes slower steps instead of skating.
+ */
+export const GAIT_SPEEDS = {
+  walk: MOVEMENT.walkSpeed,
+  run: MOVEMENT.sprintSpeed,
+  sneak: MOVEMENT.sneakSpeed,
+  crouchWalk: MOVEMENT.crouchSpeed,
+} as const satisfies Partial<Record<AvatarAnimation, number>>;
+const GAITS = Object.keys(GAIT_SPEEDS) as (keyof typeof GAIT_SPEEDS)[];
+/** Slowest gait playback: below it a fading-out step looks frozen. */
+const MIN_GAIT_SCALE = 0.3;
 
 /** Cross-fade between clips, seconds. */
 const FADE = 0.2;
@@ -99,9 +116,14 @@ export function createAvatar(model: AvatarModel): Avatar {
   const mixer = new AnimationMixer(root);
   const actions = {} as Record<AvatarAnimation, AnimationAction>;
   for (const name of AVATAR_ANIMATIONS) {
-    actions[name] = mixer
-      .clipAction(model.clips[name])
-      .setLoop(LoopRepeat, Infinity);
+    const action = mixer.clipAction(model.clips[name]);
+    if (ONE_SHOT_ANIMATIONS.includes(name)) {
+      action.setLoop(LoopOnce, 1);
+      action.clampWhenFinished = true; // hold the last pose until the next clip
+    } else {
+      action.setLoop(LoopRepeat, Infinity);
+    }
+    actions[name] = action;
   }
 
   let animation: AvatarAnimation = "idle";
@@ -113,8 +135,12 @@ export function createAvatar(model: AvatarModel): Avatar {
     tick: (previous, current) => {
       const motion = motionBetween(previous, current);
       const next = nextAnimation(animation, motion);
-      // The walk cycle is timed for WALK_SPEED: slower steps for slower movement.
-      actions.walk.timeScale = Math.max(0.3, motion.speed / WALK_SPEED);
+      for (const gait of GAITS) {
+        actions[gait].timeScale = Math.max(
+          MIN_GAIT_SCALE,
+          motion.speed / GAIT_SPEEDS[gait],
+        );
+      }
       if (next === animation) {
         return;
       }
