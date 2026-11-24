@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 
 import {
   defineActions,
@@ -307,13 +307,33 @@ describe("createInput", () => {
     function setupPointer({
       sensitivity = 1,
       invertY = false,
-    }: { sensitivity?: number; invertY?: boolean } = {}) {
+      browser = "grants",
+      onUnlock,
+    }: {
+      sensitivity?: number;
+      invertY?: boolean;
+      /**
+       * "refuses": the promise rejects, as Chrome does right after Esc.
+       * "legacy-refuses": no promise, only a `pointerlockerror` event (old Safari).
+       */
+      browser?: "grants" | "refuses" | "legacy-refuses";
+      onUnlock?: () => void;
+    } = {}) {
       const target = new EventTarget();
       const doc = new FakeDocument();
       const requests: unknown[] = [];
       const element = Object.assign(new EventTarget(), {
-        requestPointerLock: (options?: unknown) => {
+        requestPointerLock: (options?: unknown): Promise<void> | void => {
           requests.push(options);
+          if (browser === "refuses") {
+            return Promise.reject(new Error("SecurityError"));
+          }
+          if (browser === "legacy-refuses") {
+            queueMicrotask(() =>
+              doc.dispatchEvent(new Event("pointerlockerror")),
+            );
+            return;
+          }
           doc.pointerLockElement = element;
           doc.dispatchEvent(new Event("pointerlockchange"));
           return Promise.resolve();
@@ -329,6 +349,7 @@ describe("createInput", () => {
           sensitivity: () => sensitivity,
           invertY: () => invertY,
           pitchLimits: [-60 * DEG, 70 * DEG],
+          onUnlock,
         },
       });
       const move = (movementX: number, movementY: number) =>
@@ -423,6 +444,67 @@ describe("createInput", () => {
       const frame = input.sample(2);
       expect(frame.held).toBe(0);
       expect(actions.wasReleased(frame, "moveForward")).toBe(true);
+    });
+
+    test("lock() captures the mouse and resolves true", async () => {
+      const { input, requests } = setupPointer();
+
+      expect(await input.lock()).toBe(true);
+      expect(input.locked).toBe(true);
+      expect(await input.lock()).toBe(true); // already locked: no new request
+      expect(requests).toHaveLength(1);
+    });
+
+    test("lock() resolves false when the browser refuses, after one retry without raw movement", async () => {
+      const { input, requests } = setupPointer({ browser: "refuses" });
+
+      expect(await input.lock()).toBe(false);
+      expect(input.locked).toBe(false);
+      expect(requests).toEqual([{ unadjustedMovement: true }, undefined]);
+    });
+
+    test("lock() resolves false on pointerlockerror when there is no promise", async () => {
+      const { input } = setupPointer({ browser: "legacy-refuses" });
+
+      expect(await input.lock()).toBe(false);
+    });
+
+    test("unlock() releases the mouse and onUnlock fires once", async () => {
+      const onUnlock = mock(() => {});
+      const { input } = setupPointer({ onUnlock });
+      await input.lock();
+
+      input.unlock();
+      input.unlock(); // not ours anymore: nothing happens
+
+      expect(input.locked).toBe(false);
+      expect(onUnlock).toHaveBeenCalledTimes(1);
+    });
+
+    test("onUnlock fires on Esc, not when someone else's lock changes", () => {
+      const onUnlock = mock(() => {});
+      const { click, doc } = setupPointer({ onUnlock });
+
+      doc.pointerLockElement = {}; // another element took it while we weren't locked
+      doc.dispatchEvent(new Event("pointerlockchange"));
+      expect(onUnlock).not.toHaveBeenCalled();
+
+      doc.pointerLockElement = null;
+      click();
+      doc.exitPointerLock(); // Esc
+      expect(onUnlock).toHaveBeenCalledTimes(1);
+    });
+
+    test("without pointer, lock() is a no-op that resolves true", async () => {
+      const input = createInput({
+        actions,
+        bindings: defaultBindings,
+        target: new EventTarget(),
+      });
+
+      expect(await input.lock()).toBe(true);
+      input.unlock();
+      expect(input.locked).toBe(true);
     });
 
     test("dispose removes listeners and gives up its own lock", () => {

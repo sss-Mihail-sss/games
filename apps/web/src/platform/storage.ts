@@ -17,6 +17,13 @@ export function createBrowserStorage(): KeyValueStorage {
         // Приватный режим или квота: настройки просто не переживут перезагрузку.
       }
     },
+    remove: (key) => {
+      try {
+        globalThis.localStorage?.removeItem(key);
+      } catch {
+        // Same as set: nothing to do about it.
+      }
+    },
   };
 }
 
@@ -29,6 +36,9 @@ export function createMemoryStorage(
     get: (key) => data.get(key) ?? null,
     set: (key, value) => {
       data.set(key, value);
+    },
+    remove: (key) => {
+      data.delete(key);
     },
   };
 }

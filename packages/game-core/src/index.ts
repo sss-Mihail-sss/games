@@ -9,6 +9,11 @@ export type { GameManifest } from "./manifest/index.ts";
 // Context
 export type { GameContext } from "./context/index.ts";
 
+// Controls, storage and play state (parts of the context)
+export type { Controls, ControlsView } from "./controls/index.ts";
+export type { GameStorage } from "./storage/index.ts";
+export type { Play, PlayState } from "./play/index.ts";
+
 // Platform Settings
 export type { PlatformSettings } from "./platform-settings/index.ts";
 
