@@ -75,6 +75,14 @@ function stepping(motion: AvatarMotion, current: AvatarAnimation): boolean {
   return motion.speed > (GAITS.includes(current) ? WALK_EXIT : WALK_ENTER);
 }
 
+/**
+ * Vertical speed, m/s, below which the avatar flails (`fall`). An ordinary
+ * jump lands at about −4.6 m/s (the take-off speed, MOVEMENT.jumpHeight), so
+ * it never gets there: it keeps the tuck all the way down. Reached after
+ * dropping ~2.5 m, i.e. off a ledge or into the water.
+ */
+export const FALL_VY = -7;
+
 export interface AnimationRule {
   readonly animation: AvatarAnimation;
   /** `current` is the animation playing now, for hysteresis. */
@@ -83,13 +91,18 @@ export interface AnimationRule {
 
 /**
  * Checked in order; the first rule that matches wins, so the last one must
- * always match. In the air: jump while rising, fall from the top. On the
- * ground the crouch comes first (a crouched avatar can't sprint or sneak),
- * then the gaits by the sim's mode, then walk and idle.
+ * always match. In the air: fall once dropping faster than FALL_VY (and until
+ * landing: a respawn mid-fall has vy = 0 for a tick), otherwise jump, which
+ * holds its tuck. On the ground the crouch comes first (a crouched avatar
+ * can't sprint or sneak), then the gaits by the sim's mode, then walk and idle.
  */
 export const ANIMATION_RULES: readonly AnimationRule[] = [
-  { animation: "jump", when: (motion) => !motion.grounded && motion.vy > 0 },
-  { animation: "fall", when: (motion) => !motion.grounded },
+  {
+    animation: "fall",
+    when: (motion, current) =>
+      !motion.grounded && (current === "fall" || motion.vy < FALL_VY),
+  },
+  { animation: "jump", when: (motion) => !motion.grounded },
   {
     animation: "crouchWalk",
     when: (motion, current) => motion.crouched && stepping(motion, current),

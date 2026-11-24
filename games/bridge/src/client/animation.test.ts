@@ -1,9 +1,17 @@
 import { describe, expect, test } from "bun:test";
 
-import { ALL_ABILITIES, TICK_RATE } from "../sim/index.ts";
+import {
+  ALL_ABILITIES,
+  GRAVITY,
+  jumpVelocity,
+  MOVEMENT,
+  PHYSICS_DT,
+  TICK_RATE,
+} from "../sim/index.ts";
 import type { AvatarState, SimState } from "../sim/index.ts";
 import {
   ANIMATION_RULES,
+  FALL_VY,
   motionBetween,
   nextAnimation,
   WALK_ENTER,
@@ -117,26 +125,40 @@ describe("nextAnimation", () => {
     expect(nextAnimation("idle", moving(4))).toBe("walk");
   });
 
-  test("off the ground and going down is fall, whatever the speed", () => {
-    expect(nextAnimation("idle", airborne(-3))).toBe("fall");
-    expect(nextAnimation("walk", airborne(-3))).toBe("fall");
-    expect(nextAnimation("fall", { ...airborne(-3), speed: 0 })).toBe("fall");
-    // The top of a jump: no longer rising.
-    expect(nextAnimation("jump", airborne(0))).toBe("fall");
-  });
-
-  test("off the ground and rising is jump", () => {
+  test("off the ground is jump until dropping faster than FALL_VY", () => {
     expect(nextAnimation("idle", airborne(4.6))).toBe("jump");
     expect(nextAnimation("run", airborne(4.6))).toBe("jump");
     expect(nextAnimation("crouch", airborne(4.6))).toBe("jump");
-    expect(nextAnimation("jump", airborne(0.1))).toBe("jump");
+    // Over the top and coming down: still the tuck, no flailing.
+    expect(nextAnimation("jump", airborne(0))).toBe("jump");
+    expect(nextAnimation("jump", airborne(FALL_VY + 0.1))).toBe("jump");
+    // Walking off a step is a short drop, not a fall.
+    expect(nextAnimation("walk", airborne(-1))).toBe("jump");
   });
 
-  test("a whole jump: rise, fall, land", () => {
+  test("dropping faster than FALL_VY is fall, whatever the speed", () => {
+    expect(nextAnimation("jump", airborne(FALL_VY - 0.1))).toBe("fall");
+    expect(nextAnimation("walk", airborne(-9))).toBe("fall");
+    expect(nextAnimation("fall", { ...airborne(-9), speed: 0 })).toBe("fall");
+  });
+
+  test("fall holds until landing, even through a respawn tick (vy = 0)", () => {
+    expect(nextAnimation("fall", airborne(0))).toBe("fall");
+    expect(nextAnimation("fall", standing)).toBe("idle");
+  });
+
+  test("an ordinary jump never reaches FALL_VY", () => {
+    // Landing at the take-off height, it comes down as fast as it went up.
+    const takeoff = jumpVelocity(MOVEMENT.jumpHeight, GRAVITY, PHYSICS_DT);
+
+    expect(-takeoff).toBeGreaterThan(FALL_VY);
+  });
+
+  test("a whole jump: rise, come down tucked, land", () => {
     const ticks = [moving(4), airborne(4.5), airborne(2), airborne(-1)];
     const seen = [];
     let animation = nextAnimation("idle", standing);
-    for (const motion of [...ticks, airborne(-4), moving(4), standing]) {
+    for (const motion of [...ticks, airborne(-4.5), moving(4), standing]) {
       animation = nextAnimation(animation, motion);
       seen.push(animation);
     }
@@ -145,8 +167,8 @@ describe("nextAnimation", () => {
       "walk",
       "jump",
       "jump",
-      "fall",
-      "fall",
+      "jump",
+      "jump",
       "walk",
       "idle",
     ]);
