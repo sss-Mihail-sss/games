@@ -6,9 +6,11 @@ import {
   Group,
   HemisphereLight,
   Mesh,
+  MeshBasicMaterial,
   MeshStandardMaterial,
   PlaneGeometry,
   Scene,
+  SphereGeometry,
 } from "three";
 
 import { LEVEL } from "../sim/index.ts";
@@ -23,6 +25,8 @@ export interface World {
    * rotation.y is the facing. The model is added by the caller (avatar-model.ts).
    */
   avatar: Group;
+  /** Dev aid: where the sim's aim ray hits. Hidden unless the caller shows it. */
+  aimMarker: Mesh;
   dispose: () => void;
 }
 
@@ -70,9 +74,19 @@ export function createWorld(): World {
   const avatar = new Group();
   scene.add(avatar);
 
+  const aimMarker = new Mesh(
+    own(new SphereGeometry(0.05, 12, 8)),
+    // Drawn on top, so it stays visible when it sits on a surface.
+    own(new MeshBasicMaterial({ color: 0xff2d55, depthTest: false })),
+  );
+  aimMarker.renderOrder = 1;
+  aimMarker.visible = false;
+  scene.add(aimMarker);
+
   return {
     scene,
     avatar,
+    aimMarker,
     dispose: () => {
       for (const resource of owned) {
         resource.dispose();

@@ -5,5 +5,11 @@ typeAware = true # also run the rules that need types
 "typescript/consistent-type-exports" = "error"
 "typescript/no-unused-vars" = "error"
 "curly" = ["error", "all"] # no one-line `if (x) y();`: always use braces
+# Math.hypot is not correctly rounded on every platform (Bun on macOS arm64
+# differs from Linux in the last bit), and the sim must match bit for bit.
+"no-restricted-properties" = [
+  "error",
+  { object = "Math", property = "hypot", message = "Not the same on every platform: use Math.sqrt(x * x + y * y)." },
+]
 
 [fmt]

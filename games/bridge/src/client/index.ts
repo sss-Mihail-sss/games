@@ -1,6 +1,5 @@
 import { createFixedLoop, createInput, defineGame } from "@repo/game-core";
 import type { Bindings } from "@repo/game-core";
-import { quantizeYaw } from "@repo/game-protocol";
 
 import { manifest } from "../manifest.ts";
 import {
@@ -8,9 +7,12 @@ import {
   createSim,
   loadPhysics,
   physicsMemoryBytes,
+  PITCH_LIMITS,
+  shoulderScale,
+  SPAWN,
   TICK_RATE,
 } from "../sim/index.ts";
-import type { Rapier, SimState } from "../sim/index.ts";
+import type { Abilities, Rapier, SimState } from "../sim/index.ts";
 import { acquireGltfLoader } from "./assets.ts";
 import {
   createAvatar,
@@ -19,7 +21,8 @@ import {
   parseAvatarModel,
 } from "./avatar-model.ts";
 import type { Avatar, AvatarModel } from "./avatar-model.ts";
-import { createFollowCamera } from "./camera.ts";
+import { createShoulderCamera } from "./camera.ts";
+import { createHud } from "./hud.ts";
 import { lerp, lerpAngle } from "./interpolate.ts";
 import { createView } from "./renderer.ts";
 import { createWorld } from "./scene.ts";
@@ -29,7 +32,23 @@ const DEFAULT_BINDINGS: Bindings<typeof actions.list> = {
   back: ["Key:KeyS", "Key:ArrowDown"],
   left: ["Key:KeyA", "Key:ArrowLeft"],
   right: ["Key:KeyD", "Key:ArrowRight"],
+  // No Ctrl or Alt: Ctrl+W closes the tab whatever we do, Alt opens the window menu.
+  jump: ["Key:Space"],
+  sprint: ["Key:ShiftLeft"],
+  crouch: ["Key:KeyC"],
+  sneak: ["Key:KeyZ"],
 };
+
+/** For "Недоступно: …" when the sim ignores a disabled ability. */
+const ABILITY_LABELS = {
+  jump: "прыжок",
+  sprint: "бег",
+  crouch: "присед",
+  sneak: "ходьба крадучись",
+} as const satisfies Record<keyof Abilities, string>;
+
+/** How fast the crouch picture and camera follow the sim, per second. */
+const CROUCH_EASE = 14;
 
 const dev = process.env.NODE_ENV !== "production";
 
@@ -62,13 +81,26 @@ export default defineGame({
     let previous: SimState = sim.state();
     let current = previous;
     let tickMs = 0; // dev: total time spent in sim.step()
+    let heightScale = 1;
+    let lastFrame = performance.now();
 
     const world = createWorld();
-    // The camera starts behind the avatar, so W walks towards the gap.
-    const view = createFollowCamera(current.avatar.facing);
+    const view = createShoulderCamera();
     const screen = createView(element, view.camera, settings);
-    view.listen(screen.canvas);
-    const input = createInput({ actions, bindings: DEFAULT_BINDINGS });
+    const hud = createHud(element);
+    // The mouse looks around once captured by a click on the canvas; the look
+    // starts along the spawn facing, so W walks towards the gap.
+    const input = createInput({
+      actions,
+      bindings: DEFAULT_BINDINGS,
+      pointer: {
+        element: screen.canvas,
+        sensitivity: () => settings.current.mouse.sensitivity,
+        invertY: () => settings.current.mouse.invertY,
+        pitchLimits: PITCH_LIMITS,
+        initialYaw: SPAWN.facing,
+      },
+    });
     // Parsed below, once the renderer exists: KTX2 textures are transcoded for its GPU.
     let model: AvatarModel | null = null;
     let avatar: Avatar | null = null;
@@ -77,7 +109,19 @@ export default defineGame({
       tickRate: TICK_RATE,
       update: (tick) => {
         const start = dev ? performance.now() : 0;
-        sim.step(input.sample(tick, quantizeYaw(view.yaw)));
+        const frame = input.sample(tick);
+        sim.step(frame);
+        // The sim already ignored a disabled ability; just say why nothing happened.
+        for (const ability of Object.keys(
+          ABILITY_LABELS,
+        ) as (keyof Abilities)[]) {
+          if (
+            actions.wasPressed(frame, ability) &&
+            !current.abilities[ability]
+          ) {
+            hud.notice(`Недоступно: ${ABILITY_LABELS[ability]}`);
+          }
+        }
         if (dev) {
           tickMs += performance.now() - start;
         }
@@ -96,10 +140,36 @@ export default defineGame({
         const y = lerp(from.y, to.y, alpha);
         const z = lerp(from.z, to.z, alpha);
 
+        // The crouch snaps in the sim; the picture and camera ease into it.
+        const now = performance.now();
+        const ease = Math.min(1, ((now - lastFrame) / 1000) * CROUCH_EASE);
+        lastFrame = now;
+        heightScale += (shoulderScale(to.crouched) - heightScale) * ease;
+
         world.avatar.position.set(x, y, z);
         world.avatar.rotation.y = lerpAngle(from.facing, to.facing, alpha);
+        // Squashes the model too, until it gets a crouch clip: a rule in animation.ts.
+        world.avatar.scale.y = heightScale;
         avatar?.render();
-        view.follow(x, y, z);
+        // The live look, not the tick's quantized one: turning stays smooth at
+        // any refresh rate. The sim gets the same angles, quantized, every tick.
+        const look = input.look();
+        view.follow(
+          { x, y, z },
+          look.yaw,
+          look.pitch,
+          heightScale,
+          sim.castRay,
+        );
+
+        const { hit } = current.aim;
+        hud.update({ locked: input.locked, target: hit !== null });
+        if (dev) {
+          world.aimMarker.visible = hit !== null;
+          if (hit) {
+            world.aimMarker.position.set(hit.point.x, hit.point.y, hit.point.z);
+          }
+        }
         screen.renderer.render(world.scene, view.camera);
       },
     });
@@ -122,7 +192,7 @@ export default defineGame({
         );
       }
       sim.dispose(); // frees the Rapier world
-      view.dispose();
+      hud.dispose();
       // Dev check: every geometry the scene uploaded must be gone before the renderer goes.
       const memory = screen.renderer.info.memory;
       const before = { ...memory };

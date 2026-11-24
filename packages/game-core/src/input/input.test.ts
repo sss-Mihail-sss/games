@@ -1,9 +1,16 @@
 import { describe, expect, test } from "bun:test";
 
-import { defineActions } from "@repo/game-protocol";
+import {
+  defineActions,
+  pitchToRadians,
+  quantizePitch,
+} from "@repo/game-protocol";
 
 import { createInput } from "./input.ts";
 import type { Bindings } from "./type.ts";
+
+/** Level pitch on the wire. */
+const LEVEL = quantizePitch(0);
 
 const actions = defineActions(["moveForward", "grab", "nail"] as const);
 
@@ -25,7 +32,7 @@ function setup(bindings = defaultBindings) {
     target.dispatchEvent(key("keydown", code, repeat));
   const up = (code: string) => target.dispatchEvent(key("keyup", code));
   const blur = () => target.dispatchEvent(new Event("blur"));
-  const sample = () => input.sample(tick++, 0);
+  const sample = () => input.sample(tick++);
 
   return { target, input, down, up, blur, sample };
 }
@@ -78,14 +85,16 @@ describe("createInput", () => {
   test("passes the tick number through", () => {
     const { input } = setup();
 
-    expect(input.sample(7, 0).tick).toBe(7);
+    expect(input.sample(7).tick).toBe(7);
   });
 
-  test("passes the yaw through unchanged", () => {
+  test("without a pointer, the look stays level along −Z", () => {
     const { input } = setup();
 
-    expect(input.sample(0, 12345).yaw).toBe(12345);
-    expect(input.sample(1, 0).yaw).toBe(0);
+    expect(input.look()).toEqual({ yaw: 0, pitch: 0 });
+    expect(input.sample(0).yaw).toBe(0);
+    expect(input.sample(1).pitch).toBe(LEVEL);
+    expect(input.locked).toBe(true); // keyboard-only games never wait for a click
   });
 
   test("key auto-repeat does not produce new presses", () => {
@@ -143,6 +152,7 @@ describe("createInput", () => {
       pressed: 0,
       released: 0,
       yaw: 0,
+      pitch: LEVEL,
     });
   });
 
@@ -260,6 +270,7 @@ describe("createInput", () => {
       pressed: 0,
       released: 0,
       yaw: 0,
+      pitch: LEVEL,
     });
   });
 
@@ -274,9 +285,154 @@ describe("createInput", () => {
       target,
     });
     target.dispatchEvent(key("keydown", "KeyX"));
-    const frame = input.sample(0, 0);
+    const frame = input.sample(0);
 
     expect(frame.held).toBe(2 ** 31);
     expect(frame.pressed).toBe(2 ** 31);
+  });
+
+  describe("mouse look", () => {
+    const DEG = Math.PI / 180;
+
+    /** Pointer lock state as `document` keeps it. */
+    class FakeDocument extends EventTarget {
+      pointerLockElement: unknown = null;
+      exitPointerLock = () => {
+        this.pointerLockElement = null;
+        this.dispatchEvent(new Event("pointerlockchange"));
+      };
+    }
+
+    /** A fake document and canvas: pointer lock without a browser. */
+    function setupPointer({
+      sensitivity = 1,
+      invertY = false,
+    }: { sensitivity?: number; invertY?: boolean } = {}) {
+      const target = new EventTarget();
+      const doc = new FakeDocument();
+      const requests: unknown[] = [];
+      const element = Object.assign(new EventTarget(), {
+        requestPointerLock: (options?: unknown) => {
+          requests.push(options);
+          doc.pointerLockElement = element;
+          doc.dispatchEvent(new Event("pointerlockchange"));
+          return Promise.resolve();
+        },
+      });
+      const input = createInput({
+        actions,
+        bindings: defaultBindings,
+        target,
+        pointer: {
+          element,
+          document: doc,
+          sensitivity: () => sensitivity,
+          invertY: () => invertY,
+          pitchLimits: [-60 * DEG, 70 * DEG],
+        },
+      });
+      const move = (movementX: number, movementY: number) =>
+        doc.dispatchEvent(
+          Object.assign(new Event("mousemove"), { movementX, movementY }),
+        );
+      const click = () => element.dispatchEvent(new Event("click"));
+      return { input, doc, element, target, requests, move, click };
+    }
+
+    test("starts unlocked, and a click locks with raw movement", () => {
+      const { input, click, requests } = setupPointer();
+
+      expect(input.locked).toBe(false);
+      click();
+      expect(input.locked).toBe(true);
+      expect(requests).toEqual([{ unadjustedMovement: true }]);
+    });
+
+    test("does not turn before the pointer is locked", () => {
+      const { input, move } = setupPointer();
+      move(100, 100);
+
+      expect(input.look()).toEqual({ yaw: 0, pitch: 0 });
+    });
+
+    test("mouse right turns right, mouse up looks up", () => {
+      const { input, click, move } = setupPointer();
+      click();
+      move(100, -50);
+
+      const { yaw, pitch } = input.look();
+      expect(yaw).toBeCloseTo(-0.3, 12); // 100 px × 0.003
+      expect(pitch).toBeCloseTo(0.15, 12);
+    });
+
+    test("sensitivity scales and invertY flips the vertical", () => {
+      const { input, click, move } = setupPointer({
+        sensitivity: 2,
+        invertY: true,
+      });
+      click();
+      move(10, -10);
+
+      expect(input.look().yaw).toBeCloseTo(-0.06, 12);
+      expect(input.look().pitch).toBeCloseTo(-0.06, 12);
+    });
+
+    test("pitch stops at the game's limits", () => {
+      const { input, click, move } = setupPointer();
+      click();
+      for (let i = 0; i < 20; i++) {
+        move(0, -300); // way past +70°
+      }
+      expect(input.look().pitch).toBeCloseTo(70 * DEG, 12);
+      for (let i = 0; i < 20; i++) {
+        move(0, 300);
+      }
+      expect(input.look().pitch).toBeCloseTo(-60 * DEG, 12);
+    });
+
+    test("drops absurd jumps from a single event", () => {
+      const { input, click, move } = setupPointer();
+      click();
+      move(5000, 0);
+
+      expect(input.look().yaw).toBe(0);
+    });
+
+    test("puts the quantized look into each frame", () => {
+      const { input, click, move } = setupPointer();
+      click();
+      move(0, -100); // +0.3 rad
+
+      const frame = input.sample(0);
+      expect(pitchToRadians(frame.pitch)).toBeCloseTo(0.3, 4);
+    });
+
+    test("keys are ignored until locked, and Esc releases them", () => {
+      const { input, target, click, doc } = setupPointer();
+      const press = (code: string) =>
+        target.dispatchEvent(key("keydown", code));
+
+      press("KeyW");
+      expect(input.sample(0).held).toBe(0);
+
+      click();
+      press("KeyW");
+      expect(actions.isHeld(input.sample(1), "moveForward")).toBe(true);
+
+      doc.exitPointerLock(); // what the browser does on Esc
+      const frame = input.sample(2);
+      expect(frame.held).toBe(0);
+      expect(actions.wasReleased(frame, "moveForward")).toBe(true);
+    });
+
+    test("dispose removes listeners and gives up its own lock", () => {
+      const { input, click, move, doc } = setupPointer();
+      click();
+      input.dispose();
+
+      expect(doc.pointerLockElement).toBeNull();
+      move(100, 0);
+      expect(input.look().yaw).toBe(0);
+    });
   });
 });

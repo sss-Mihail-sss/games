@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { TICK_RATE } from "../sim/index.ts";
+import { ALL_ABILITIES, TICK_RATE } from "../sim/index.ts";
 import type { AvatarState, SimState } from "../sim/index.ts";
 import {
   ANIMATION_RULES,
@@ -15,7 +15,23 @@ function state(avatar: Partial<AvatarState>, respawns = 0): SimState {
   return {
     tick: 0,
     respawns,
-    avatar: { x: 0, y: 0, z: 0, facing: 0, grounded: true, ...avatar },
+    avatar: {
+      x: 0,
+      y: 0,
+      z: 0,
+      facing: 0,
+      grounded: true,
+      mode: "walk",
+      crouched: false,
+      speed: 0,
+      ...avatar,
+    },
+    aim: {
+      origin: { x: 0, y: 0, z: 0 },
+      direction: { x: 0, y: 0, z: -1 },
+      hit: null,
+    },
+    abilities: ALL_ABILITIES,
   };
 }
 
@@ -23,10 +39,13 @@ const standing: AvatarMotion = { speed: 0, vy: 0, grounded: true };
 const moving = (speed: number): AvatarMotion => ({ ...standing, speed });
 
 describe("motionBetween", () => {
-  test("horizontal speed in m/s from one tick of movement", () => {
-    const motion = motionBetween(state({}), state({ x: 0.06, z: -0.08 }));
+  test("horizontal speed is the sim's own", () => {
+    const motion = motionBetween(
+      state({}),
+      state({ x: 0.06, z: -0.08, speed: 3 }),
+    );
 
-    expect(motion.speed).toBeCloseTo(0.1 * TICK_RATE, 9);
+    expect(motion.speed).toBe(3);
     expect(motion.vy).toBe(0);
     expect(motion.grounded).toBe(true);
   });
@@ -45,7 +64,7 @@ describe("motionBetween", () => {
   test("a respawn is a teleport, not a speed", () => {
     const motion = motionBetween(
       state({ x: 3, y: -6, z: 2, grounded: false }, 0),
-      state({ x: -10, y: 0, z: 0 }, 1),
+      state({ x: -10, y: 0, z: 0, speed: 99 }, 1),
     );
 
     expect(motion).toEqual({ speed: 0, vy: 0, grounded: true });

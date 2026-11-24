@@ -15,8 +15,10 @@ export interface AvatarMotion {
 }
 
 /**
- * Motion from two neighbouring sim states, one tick apart. A respawn is a
- * teleport, not a speed: on that tick the avatar is standing still.
+ * Motion from two neighbouring sim states, one tick apart. Horizontal speed
+ * comes from the sim itself (`avatar.speed`, M1-09); vertical speed from the
+ * change in height. A respawn is a teleport, not a speed: on that tick the
+ * avatar is standing still.
  */
 export function motionBetween(
   previous: SimState,
@@ -26,12 +28,9 @@ export function motionBetween(
   if (current.respawns !== previous.respawns) {
     return { speed: 0, vy: 0, grounded: avatar.grounded };
   }
-  const dx = avatar.x - previous.avatar.x;
-  const dy = avatar.y - previous.avatar.y;
-  const dz = avatar.z - previous.avatar.z;
   return {
-    speed: Math.hypot(dx, dz) * TICK_RATE,
-    vy: dy * TICK_RATE,
+    speed: avatar.speed,
+    vy: (avatar.y - previous.avatar.y) * TICK_RATE,
     grounded: avatar.grounded,
   };
 }

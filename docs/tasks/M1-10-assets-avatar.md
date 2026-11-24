@@ -89,7 +89,7 @@
 ### 6. Автомат анимаций: `client/animation.ts`
 
 - [x] Чистая логика без three, с тестами:
-  - `motionBetween(previous, current): AvatarMotion` — горизонтальная скорость и `vy` в м/с из двух соседних `SimState`, плюс `grounded`. На тике респауна движение нулевое: телепорт — не скорость;
+  - `motionBetween(previous, current): AvatarMotion` — горизонтальная скорость (после M1-09 её считает сам `sim`: `avatar.speed`), `vy` в м/с по изменению высоты между двумя соседними `SimState`, плюс `grounded`. На тике респауна движение нулевое: телепорт — не скорость;
   - `nextAnimation(current, motion): AvatarAnimation` — упорядоченный список правил, побеждает первое подходящее. Сейчас три правила:
     - `fall` — не на земле;
     - `walk` — скорость выше порога;

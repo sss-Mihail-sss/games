@@ -1,9 +1,11 @@
 import type { InputFrame } from "./type.ts";
+import { PITCH_MAX } from "./pitch.ts";
 import { YAW_STEPS } from "./yaw.ts";
 
-// v2 adds yaw. Older frames are rejected, not upgraded: there are no deployed clients yet.
-const VERSION = 2;
-const SIZE = 19; // 1 байт версии + 4 × uint32 + uint16
+// v2 added yaw, v3 adds pitch. Older frames are rejected, not upgraded: there are
+// no deployed clients yet.
+const VERSION = 3;
+const SIZE = 21; // 1 байт версии + 4 × uint32 + 2 × uint16
 
 export class InputFrameDecodeError extends Error {
   override name = "InputFrameDecodeError";
@@ -18,6 +20,16 @@ export function encodeInputFrame(frame: InputFrame): Uint8Array {
     );
   }
 
+  if (
+    !Number.isInteger(frame.pitch) ||
+    frame.pitch < 0 ||
+    frame.pitch > PITCH_MAX
+  ) {
+    throw new RangeError(
+      `pitch must be an integer in 0…${PITCH_MAX} (use quantizePitch), got ${frame.pitch}`,
+    );
+  }
+
   const bytes = new Uint8Array(SIZE);
   const view = new DataView(bytes.buffer);
 
@@ -27,6 +39,7 @@ export function encodeInputFrame(frame: InputFrame): Uint8Array {
   view.setUint32(9, frame.pressed, true);
   view.setUint32(13, frame.released, true);
   view.setUint16(17, frame.yaw, true);
+  view.setUint16(19, frame.pitch, true);
 
   return bytes;
 }
@@ -54,5 +67,6 @@ export function decodeInputFrame(bytes: Uint8Array): InputFrame {
     pressed: view.getUint32(9, true),
     released: view.getUint32(13, true),
     yaw: view.getUint16(17, true),
+    pitch: view.getUint16(19, true),
   };
 }

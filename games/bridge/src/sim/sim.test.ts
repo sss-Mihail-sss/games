@@ -1,9 +1,10 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 
-import { quantizeYaw } from "@repo/game-protocol";
+import { quantizePitch, quantizeYaw } from "@repo/game-protocol";
 import type { InputFrame } from "@repo/game-protocol";
 
 import { actions } from "./actions.ts";
+import { PITCH_LIMITS, REACH, SHOULDER } from "./aim.ts";
 import type { Action } from "./actions.ts";
 import { hashNumbers } from "./hash.ts";
 import { LEVEL } from "./level.ts";
@@ -18,13 +19,18 @@ beforeAll(async () => {
   R = await loadPhysics();
 });
 
-/** A frame with these actions held and the camera turned by `yawRadians`. */
-const frame = (held: Action[] = [], yawRadians = 0): InputFrame => ({
+/** A frame with these actions held, the camera turned by `yawRadians` and tilted by `pitchRadians`. */
+const frame = (
+  held: Action[] = [],
+  yawRadians = 0,
+  pitchRadians = 0,
+): InputFrame => ({
   tick: 0,
   held: held.reduce((mask, action) => (mask | actions.bit(action)) >>> 0, 0),
   pressed: 0,
   released: 0,
   yaw: quantizeYaw(yawRadians),
+  pitch: quantizePitch(pitchRadians),
 });
 
 const run = (sim: Sim, input: InputFrame, seconds: number) => {
@@ -45,14 +51,11 @@ function withSim(body: (sim: Sim) => void) {
   }
 }
 
-const moved = (from: SimState, to: SimState) => ({
-  x: to.avatar.x - from.avatar.x,
-  z: to.avatar.z - from.avatar.z,
-  distance: Math.hypot(
-    to.avatar.x - from.avatar.x,
-    to.avatar.z - from.avatar.z,
-  ),
-});
+const moved = (from: SimState, to: SimState) => {
+  const x = to.avatar.x - from.avatar.x;
+  const z = to.avatar.z - from.avatar.z;
+  return { x, z, distance: Math.sqrt(x * x + z * z) };
+};
 
 /** The camera yaw that looks along +X, across the gap. */
 const TOWARDS_GAP = -Math.PI / 2;
@@ -178,10 +181,83 @@ describe("falling", () => {
   });
 });
 
+describe("aim", () => {
+  const DEG = Math.PI / 180;
+
+  test("starts at the shoulder and looks where the camera looks", () => {
+    withSim((sim) => {
+      sim.step(frame([], 0, 0));
+      const { avatar, aim } = sim.state();
+
+      expect(aim.origin.y).toBeCloseTo(avatar.y + SHOULDER.height, 6);
+      // Yaw 0: forward is −Z, the shoulder is to the right (+X).
+      expect(aim.origin.x).toBeCloseTo(avatar.x + SHOULDER.side, 6);
+      expect(aim.direction.x).toBeCloseTo(0, 6);
+      expect(aim.direction.y).toBeCloseTo(0, 6);
+      expect(aim.direction.z).toBeCloseTo(-1, 6);
+    });
+  });
+
+  test("looking down at the bank hits its top within reach", () => {
+    withSim((sim) => {
+      sim.step(frame([], 0, -50 * DEG));
+      const { hit } = sim.state().aim;
+
+      expect(hit).not.toBeNull();
+      expect(hit!.point.y).toBeCloseTo(0, 3); // the bank's top surface
+      expect(hit!.normal.y).toBeCloseTo(1, 3);
+      expect(hit!.distance).toBeLessThanOrEqual(REACH);
+    });
+  });
+
+  test("nothing within reach when looking level across the bank", () => {
+    withSim((sim) => {
+      sim.step(frame([], 0, 0));
+
+      expect(sim.state().aim.hit).toBeNull();
+    });
+  });
+
+  test("never hits the avatar's own capsule", () => {
+    withSim((sim) => {
+      sim.step(frame([], 0, PITCH_LIMITS[0])); // as far down as allowed
+      const { hit } = sim.state().aim;
+
+      // The first hit is the ground, not the capsule right below the shoulder.
+      expect(hit!.point.y).toBeCloseTo(0, 3);
+    });
+  });
+
+  test("pitch is clamped by the sim, whatever the client sends", () => {
+    withSim((sim) => {
+      sim.step(frame([], 0, 89 * DEG));
+      const up = sim.state().aim.direction.y;
+      sim.step(frame([], 0, -89 * DEG));
+      const down = sim.state().aim.direction.y;
+
+      expect(Math.asin(up)).toBeCloseTo(PITCH_LIMITS[1], 3);
+      expect(Math.asin(down)).toBeCloseTo(PITCH_LIMITS[0], 3);
+    });
+  });
+
+  test("castRay ignores the avatar and finds the ground", () => {
+    withSim((sim) => {
+      const { avatar } = sim.state();
+      const fromAbove = { x: avatar.x, y: avatar.y + 5, z: avatar.z };
+
+      const distance = sim.castRay(fromAbove, { x: 0, y: -1, z: 0 }, 10);
+      expect(distance).toBeCloseTo(fromAbove.y, 3); // the ground is at y = 0
+      expect(sim.castRay(fromAbove, { x: 0, y: 1, z: 0 }, 10)).toBeNull();
+    });
+  });
+});
+
 /**
  * A scripted session: walk to the gap, fall, respawn, walk sideways, turn the
  * camera. Its hash must not change unless the game's physics deliberately does.
  */
+const MODES = ["walk", "sprint", "crouch", "sneak", "air"];
+
 function scriptedSession(sim: Sim): string {
   const states: number[] = [];
   const record = (state: SimState) =>
@@ -193,16 +269,35 @@ function scriptedSession(sim: Sim): string {
       state.avatar.z,
       state.avatar.facing,
       Number(state.avatar.grounded),
+      state.aim.origin.x,
+      state.aim.origin.y,
+      state.aim.origin.z,
+      state.aim.direction.x,
+      state.aim.direction.y,
+      state.aim.direction.z,
+      state.aim.hit?.distance ?? -1,
+      MODES.indexOf(state.avatar.mode),
+      Number(state.avatar.crouched),
+      state.avatar.speed,
     );
-  const script: [Action[], number, number][] = [
-    [[], 0, 0.5],
-    [["forward"], TOWARDS_GAP, 4],
-    [["right"], TOWARDS_GAP, 3],
-    [["forward", "left"], 0.3, 2],
+  // [held, yaw, pitch, seconds, jump on the first tick of the segment]
+  const script: [Action[], number, number, number, boolean][] = [
+    [[], 0, 0, 0.5, false],
+    [["forward"], TOWARDS_GAP, -0.3, 4, false], // into the gap, respawn
+    [["right"], TOWARDS_GAP, 0.4, 3, false],
+    [["forward", "left"], 0.3, -0.9, 2, false],
+    [["forward", "sprint"], 0, 0, 1, true], // sprint jump
+    [["back", "crouch"], 0, 0.2, 1, false],
+    [["forward", "sneak"], TOWARDS_GAP, 0, 6, false], // sneak to the edge
+    [["right", "sneak"], TOWARDS_GAP, 0, 1, false], // along it
+    [[], 0, 0, 1, true],
   ];
-  for (const [held, yaw, seconds] of script) {
+  for (const [held, yaw, pitch, seconds, jump] of script) {
     for (let i = 0; i < seconds * TICK_RATE; i++) {
-      sim.step(frame(held, yaw));
+      const input = frame(held, yaw, pitch);
+      sim.step(
+        jump && i === 0 ? { ...input, pressed: actions.bit("jump") } : input,
+      );
       record(sim.state());
     }
   }
@@ -210,8 +305,15 @@ function scriptedSession(sim: Sim): string {
 }
 
 describe("determinism", () => {
-  /** Recorded on macOS arm64; CI checks it on Linux x64 (see M1-01). */
-  const GOLDEN = "f81faa93";
+  /**
+   * Recorded on macOS arm64; CI checks it on Linux x64 (see M1-01).
+   * M1-03 (f81faa93 → 8012b949): the session gained pitch and the aim ray.
+   * M1-09 (→ aa2c8c63): jumps, sprint, crouch and sneak in the script, mode,
+   * crouch and speed in the record, and air momentum changed falling.
+   * Then (→ 9dfca13c) Math.hypot became Math.sqrt(x² + z²): on macOS arm64
+   * hypot was off by one bit from Linux, and `speed` feeds the air steering.
+   */
+  const GOLDEN = "9dfca13c";
 
   test("a scripted session matches the golden hash", () => {
     const sim = createSim(R);

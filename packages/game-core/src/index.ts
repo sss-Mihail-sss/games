@@ -21,4 +21,12 @@ export type { Clock, FixedLoop, FixedLoopOptions } from "./loop/index.ts";
 
 // Input
 export { createInput } from "./input/index.ts";
-export type { Bindings, Input, InputOptions } from "./input/index.ts";
+export type {
+  Bindings,
+  Input,
+  InputOptions,
+  Look,
+  PointerLockDocument,
+  PointerLockElement,
+  PointerOptions,
+} from "./input/index.ts";

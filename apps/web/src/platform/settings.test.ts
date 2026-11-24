@@ -28,9 +28,22 @@ describe("createSettingsStore", () => {
         quality: "low",
         reducedMotion: true,
         locale: "en",
+        mouse: { sensitivity: 2.5, invertY: true },
       };
 
       expect(withStored(stored).current).toEqual(stored);
+    });
+
+    test("an out-of-range or broken mouse field falls back on its own", () => {
+      const { mouse } = withStored({
+        mouse: { sensitivity: 50, invertY: "yes" },
+      }).current;
+
+      expect(mouse).toEqual(DEFAULT_SETTINGS.mouse);
+      expect(
+        withStored({ mouse: { sensitivity: 0.1, invertY: true } }).current
+          .mouse,
+      ).toEqual({ sensitivity: 0.1, invertY: true });
     });
 
     test.each(["{nope", "null", "42", '"string"', "[]"])(
@@ -75,6 +88,14 @@ describe("createSettingsStore", () => {
       store.set({ quality: "low" });
 
       expect(store.current.quality).toBe("low");
+    });
+
+    test("merges a partial mouse patch onto the current values", () => {
+      const store = createSettingsStore(createMemoryStorage());
+      store.set({ mouse: { sensitivity: 2 } });
+      store.set({ mouse: { invertY: true } });
+
+      expect(store.current.mouse).toEqual({ sensitivity: 2, invertY: true });
     });
 
     test("merges a partial volume patch", () => {
