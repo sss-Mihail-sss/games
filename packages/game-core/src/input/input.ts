@@ -251,17 +251,16 @@ function createMouseLook(
   };
 
   // Esc always gives the mouse back (the platform never lets it be bound).
-  // Safari hands the keydown to the page while its own unlock is still on the
-  // way; asking once more makes sure the lock really goes.
-  keys.addEventListener(
-    "keydown",
-    (event) => {
-      if (locked && (event as KeyboardEvent).code === "Escape") {
-        release();
-      }
-    },
-    { signal },
-  );
+  // Safari keeps the first Esc keydown to itself, to hide its "Your mouse
+  // pointer is hidden" banner, and the lock stays: only the keyup reaches the
+  // page. So either half of Esc while locked asks the browser to let go.
+  const onEscape = (event: Event) => {
+    if (locked && (event as KeyboardEvent).code === "Escape") {
+      release();
+    }
+  };
+  keys.addEventListener("keydown", onEscape, { signal });
+  keys.addEventListener("keyup", onEscape, { signal });
 
   doc.addEventListener(
     "mousemove",
