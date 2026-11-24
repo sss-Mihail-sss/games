@@ -4,13 +4,17 @@ import { games } from "#games/index.ts";
 import { getLocale } from "#locale/index.ts";
 import { playPath } from "#site/index.ts";
 import { PlayLink } from "./play-link.tsx";
+import { SettingsButton } from "./settings-button.tsx";
 
 export default async function CatalogPage() {
   const locale = await getLocale();
 
   return (
     <main>
-      <h1 className="mb-6 text-3xl font-bold">Игры</h1>
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <h1 className="text-3xl font-bold">Игры</h1>
+        <SettingsButton />
+      </div>
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-6">
         {games.manifests.map((game, index) => (
           <li key={game.id}>
