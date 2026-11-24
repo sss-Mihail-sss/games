@@ -13,6 +13,7 @@ import {
   createPlatformContext,
   createPlayStore,
 } from "#platform/index.ts";
+import type { HostState, PlayStore } from "#platform/index.ts";
 
 interface GameHostProps {
   gameId: GameId;
@@ -28,6 +29,8 @@ export function GameHost({ gameId, locale }: GameHostProps) {
   const elementRef = useRef<HTMLDivElement>(null);
   // Wrapped in an object: a game may reject with any value, even undefined.
   const [failure, setFailure] = useState<{ error: unknown } | null>(null);
+  const playRef = useRef<PlayStore | null>(null);
+  const [state, setState] = useState<HostState>("loading");
 
   if (failure) {
     // Error boundaries only see errors thrown during render.
@@ -47,8 +50,13 @@ export function GameHost({ gameId, locale }: GameHostProps) {
       settings.set({ locale });
     }
     const play = createPlayStore();
+    playRef.current = play;
+    setState(play.state);
+    const unsubscribe = play.subscribe((next) => {
+      setState(next);
+    });
 
-    return mountGame({
+    const stop = mountGame({
       element,
       load: () => gameLoader.load(gameId),
       context: (game) =>
@@ -70,7 +78,27 @@ export function GameHost({ gameId, locale }: GameHostProps) {
         setFailure({ error });
       },
     });
+    return () => {
+      stop();
+      unsubscribe();
+      playRef.current = null;
+    };
   }, [gameId, locale]);
 
-  return <div ref={elementRef} className="min-h-0 flex-1" />;
+  return (
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <div ref={elementRef} className="min-h-0 flex-1" />
+      {state === "paused" && (
+        // Until the pause menu (M1-12, part C). A click is a user action, so
+        // the game may capture the mouse again in its play listener.
+        <button
+          type="button"
+          className="absolute inset-0 flex items-center justify-center bg-black/45 text-xl font-semibold text-white"
+          onClick={() => playRef.current?.dispatch("resume")}
+        >
+          Пауза — кликни, чтобы продолжить
+        </button>
+      )}
+    </div>
+  );
 }

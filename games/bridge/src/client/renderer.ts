@@ -19,10 +19,20 @@ export interface View {
  * A WebGL canvas that fills `element` and keeps its drawing buffer in sync with
  * the element's size, the device pixel ratio and the quality setting.
  */
+export interface ViewOptions {
+  /**
+   * After the drawing buffer was resized. `setSize` clears the canvas, so a
+   * game whose loop is stopped (paused, in the menu) must draw a frame again,
+   * or a black screen stays behind the menu.
+   */
+  onResize?: () => void;
+}
+
 export function createView(
   element: HTMLElement,
   camera: PerspectiveCamera,
   settings: GameContext["settings"],
+  { onResize }: ViewOptions = {},
 ): View {
   const renderer = new WebGLRenderer({ antialias: true });
   const canvas = renderer.domElement;
@@ -54,6 +64,7 @@ export function createView(
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
+    onResize?.();
   };
   resize();
 
