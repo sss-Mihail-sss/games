@@ -4,6 +4,8 @@ node_modules
 # output
 out
 dist
+# Optimized game models are committed: building them needs `ktx` (scripts/optimize-assets.ts)
+!/games/*/assets/dist/
 *.tgz
 
 # Next.js (apps/web): build output and the generated type reference file

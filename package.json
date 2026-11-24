@@ -23,7 +23,11 @@
       "tailwindcss": "4.3.5",
       "@tailwindcss/turbopack": "4.3.5",
       "@types/bun": "1.4.4",
-      "@dimforge/rapier3d-deterministic-compat": "0.21.0"
+      "@dimforge/rapier3d-deterministic-compat": "0.21.0",
+      "@gltf-transform/core": "4.5.1",
+      "@gltf-transform/extensions": "4.5.1",
+      "@gltf-transform/functions": "4.5.1",
+      "meshoptimizer": "1.3.0"
     }
   },
   "scripts": {
@@ -34,10 +38,15 @@
     "dev:api": "bun run --filter api dev",
     "dev:game": "bun run --filter game-server dev",
     "typecheck": "bun run --filter web typegen && bun check",
-    "test": "bun test --pass-with-no-tests"
+    "test": "bun test --pass-with-no-tests",
+    "assets": "bun scripts/optimize-assets.ts"
   },
   "devDependencies": {
-    "@types/bun": "catalog:"
+    "@types/bun": "catalog:",
+    "@gltf-transform/core": "catalog:",
+    "@gltf-transform/extensions": "catalog:",
+    "@gltf-transform/functions": "catalog:",
+    "meshoptimizer": "catalog:"
   },
   "peerDependencies": {
     "typescript": "catalog:"
