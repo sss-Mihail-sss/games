@@ -7,9 +7,11 @@ import { gameLoader } from "#game-loader/index.ts";
 import type { GameId } from "#games/index.ts";
 import type { Locale } from "#locale/index.ts";
 import {
-  createBrowserStorage,
+  browserSettings,
+  browserStorage,
+  createBindingsStore,
   createPlatformContext,
-  createSettingsStore,
+  createPlayStore,
 } from "#platform/index.ts";
 
 interface GameHostProps {
@@ -38,17 +40,32 @@ export function GameHost({ gameId, locale }: GameHostProps) {
       return;
     }
 
-    const storage = createBrowserStorage();
-    const settings = createSettingsStore(storage);
+    const storage = browserStorage();
+    const settings = browserSettings();
     // The URL is the source of truth for the language.
     if (settings.current.locale !== locale) {
       settings.set({ locale });
     }
+    const play = createPlayStore();
 
     return mountGame({
       element,
       load: () => gameLoader.load(gameId),
-      context: createPlatformContext(gameId, { storage, settings }),
+      context: (game) =>
+        createPlatformContext(gameId, {
+          storage,
+          settings,
+          play,
+          bindings: game.controls
+            ? createBindingsStore(storage, gameId, game.controls)
+            : undefined,
+        }),
+      onReady: () => {
+        play.dispatch("ready");
+        // Until the menus (M1-12, part C) there is no "Play" button: start at
+        // once. The game still captures the mouse on a click on the canvas.
+        play.dispatch("start");
+      },
       onError: (error) => {
         setFailure({ error });
       },
