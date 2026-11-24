@@ -8,7 +8,8 @@
     "./server": "./src/server/index.ts"
   },
   "scripts": {
-    "typecheck": "bun check"
+    "typecheck": "bun check",
+    "model:builder": "bun assets/models/builder.ts"
   },
   "dependencies": {
     "three": "catalog:",
