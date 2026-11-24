@@ -61,7 +61,7 @@ export default async function PlayPage({ params }: Props) {
   return (
     <main className="flex h-[calc(100vh-4rem)] flex-col">
       <h1 className="mb-4 text-2xl font-bold">{game.title}</h1>
-      <GameHost gameId={id} locale={locale} />
+      <GameHost gameId={id} title={game.title} locale={locale} />
     </main>
   );
 }
