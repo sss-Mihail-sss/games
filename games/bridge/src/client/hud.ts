@@ -1,10 +1,23 @@
 /**
- * DOM on top of the canvas: the crosshair and the "click to play" overlay.
+ * DOM on top of the canvas: the crosshair, notices and the "click to continue"
+ * fallback. Menus and the key list are the platform's (M1-12).
  * Plain DOM with inline styles: the game package doesn't depend on the site's CSS.
  */
+export interface HudState {
+  /** The mouse is captured: the crosshair shows. */
+  locked: boolean;
+  /**
+   * Playing, but the mouse isn't captured: the browser refused the menu's
+   * request (Chrome does for ~1 s after Esc). A click on the canvas captures it.
+   */
+  prompt: boolean;
+  /** Something within reach. */
+  target: boolean;
+}
+
 export interface Hud {
   /** Call every frame; touches the DOM only when something changed. */
-  update: (state: { locked: boolean; target: boolean }) => void;
+  update: (state: HudState) => void;
   /** A short message at the bottom, e.g. "Недоступно: спринт"; fades by itself. */
   notice: (text: string) => void;
   dispose: () => void;
@@ -14,7 +27,7 @@ export interface Hud {
 const NOTICE_MS = 1200;
 
 export function createHud(element: HTMLElement): Hud {
-  // The overlay and the crosshair are positioned against the game's container.
+  // The prompt and the crosshair are positioned against the game's container.
   const previousPosition = element.style.position;
   if (getComputedStyle(element).position === "static") {
     element.style.position = "relative";
@@ -36,8 +49,8 @@ export function createHud(element: HTMLElement): Hud {
   } satisfies Partial<CSSStyleDeclaration>);
 
   // Clicks must reach the canvas, which captures the mouse: no pointer events here.
-  const overlay = document.createElement("div");
-  Object.assign(overlay.style, {
+  const prompt = document.createElement("div");
+  Object.assign(prompt.style, {
     position: "absolute",
     inset: "0",
     display: "flex",
@@ -50,17 +63,8 @@ export function createHud(element: HTMLElement): Hud {
     font: "600 1.25rem system-ui, sans-serif",
     pointerEvents: "none",
   } satisfies Partial<CSSStyleDeclaration>);
-  const title = document.createElement("div");
-  title.textContent = "Кликни, чтобы играть";
-  const hint = document.createElement("div");
-  hint.textContent =
-    "Мышь — обзор, WASD — ходьба, Space — прыжок, Shift — бег, C — присед, Z — крадучись. Esc — отпустить мышь";
-  Object.assign(hint.style, {
-    font: "400 0.875rem system-ui, sans-serif",
-    maxWidth: "32rem",
-    textAlign: "center",
-  });
-  overlay.append(title, hint);
+  prompt.textContent = "Кликни, чтобы продолжить";
+  prompt.style.display = "none";
 
   const toast = document.createElement("div");
   Object.assign(toast.style, {
@@ -78,9 +82,9 @@ export function createHud(element: HTMLElement): Hud {
   } satisfies Partial<CSSStyleDeclaration>);
   let hideAt = 0;
 
-  element.append(crosshair, overlay, toast);
+  element.append(crosshair, prompt, toast);
 
-  let shown: { locked: boolean; target: boolean } | null = null;
+  let shown: HudState | null = null;
 
   return {
     notice: (text) => {
@@ -93,11 +97,15 @@ export function createHud(element: HTMLElement): Hud {
         toast.style.display = "none";
         hideAt = 0;
       }
-      if (shown?.locked === state.locked && shown.target === state.target) {
+      if (
+        shown?.locked === state.locked &&
+        shown.prompt === state.prompt &&
+        shown.target === state.target
+      ) {
         return;
       }
       shown = state;
-      overlay.style.display = state.locked ? "none" : "flex";
+      prompt.style.display = state.prompt ? "flex" : "none";
       crosshair.style.display = state.locked ? "block" : "none";
       // Something within reach: the dot grows and turns warm.
       crosshair.style.transform = state.target ? "scale(1.8)" : "scale(1)";
@@ -105,7 +113,7 @@ export function createHud(element: HTMLElement): Hud {
     },
     dispose: () => {
       crosshair.remove();
-      overlay.remove();
+      prompt.remove();
       toast.remove();
       element.style.position = previousPosition;
     },
