@@ -541,6 +541,35 @@ describe("createInput", () => {
         expect(onUnlock).toHaveBeenCalledTimes(1);
       });
 
+      test("first Esc: Safari keeps the keydown for its banner, the keyup alone unlocks", () => {
+        // Logged in Safari: keyup Escape with lockEl CANVAS, no keydown, no
+        // pointer lock event; the lock stays until the page lets go.
+        const onUnlock = mock(() => {});
+        const { input, target, click, doc } = setupPointer({ onUnlock });
+        click();
+        const { exit, flush } = asyncUnlock(doc);
+
+        target.dispatchEvent(key("keyup", "Escape"));
+        expect(exit).toHaveBeenCalledTimes(1);
+
+        flush();
+        expect(input.locked).toBe(false);
+        expect(onUnlock).toHaveBeenCalledTimes(1);
+      });
+
+      test("Esc keydown and keyup together still pause once", () => {
+        const onUnlock = mock(() => {});
+        const { target, click, doc } = setupPointer({ onUnlock });
+        click();
+        const { flush } = asyncUnlock(doc);
+
+        target.dispatchEvent(esc());
+        target.dispatchEvent(key("keyup", "Escape")); // unlock still on its way
+        flush();
+
+        expect(onUnlock).toHaveBeenCalledTimes(1);
+      });
+
       test("an unlock reported only by pointerlockerror still pauses", () => {
         const onUnlock = mock(() => {});
         const { input, target, click, doc } = setupPointer({ onUnlock });
