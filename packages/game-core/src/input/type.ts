@@ -29,7 +29,11 @@ export interface PointerOptions {
   /** The game's pitch range in radians, e.g. [−60°, +70°]. */
   pitchLimits: readonly [min: number, max: number];
   initialYaw?: number;
-  /** The capture is gone: Esc, another window, `unlock()`. The game may pause. */
+  /**
+   * The capture is gone: Esc, another window, `unlock()`. The game may pause.
+   * Fires once per lost lock, from a pointer lock event or, when the browser
+   * sent none (Safari), from the next `sample()`, i.e. inside `update()`.
+   */
   onUnlock?: () => void;
 }
 
