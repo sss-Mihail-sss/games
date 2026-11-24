@@ -8,7 +8,7 @@ import type { MountGameOptions } from "./type.ts";
 type Mount = GameModule["mount"];
 
 const element = {} as HTMLElement;
-const context = {} as Omit<GameContext, "signal">;
+const context = () => ({}) as Omit<GameContext, "signal">;
 
 /** A promise the test resolves or rejects by hand, to control timing. */
 function deferred<T>() {
@@ -57,7 +57,7 @@ describe("mountGame", () => {
 
     mountGame({
       element,
-      context: ownContext,
+      context: () => ownContext,
       onError: mock(),
       load: loads(mount),
     });
@@ -68,6 +68,52 @@ describe("mountGame", () => {
     expect(el).toBe(element);
     expect(ctx.log).toBe(console);
     expect(ctx.signal.aborted).toBe(false);
+  });
+
+  test("builds the context from the loaded module", async () => {
+    const loaded = game(mounts());
+    const contextFor = mock(context);
+
+    mountGame({
+      element,
+      context: contextFor,
+      onError: mock(),
+      load: () => Promise.resolve(loaded),
+    });
+    await flush();
+
+    expect(contextFor).toHaveBeenCalledWith(loaded);
+  });
+
+  test("onReady fires once, after mount", async () => {
+    const pending = deferred<Unmount>();
+    const onReady = mock(() => {});
+    start({ load: loads(() => pending.promise), onReady });
+    await flush();
+    expect(onReady).not.toHaveBeenCalled(); // still mounting
+
+    pending.resolve(() => {});
+    await flush();
+
+    expect(onReady).toHaveBeenCalledTimes(1);
+  });
+
+  test("no onReady when the page was left during mount, nor when mount failed", async () => {
+    const pending = deferred<Unmount>();
+    const onReady = mock(() => {});
+    const { stop } = start({ load: loads(() => pending.promise), onReady });
+    await flush();
+    stop();
+    pending.resolve(() => {});
+    await flush();
+
+    start({
+      load: loads(() => Promise.reject(new Error("webgl unavailable"))),
+      onReady,
+    });
+    await flush();
+
+    expect(onReady).not.toHaveBeenCalled();
   });
 
   test("cleanup after mount unmounts the game once", async () => {

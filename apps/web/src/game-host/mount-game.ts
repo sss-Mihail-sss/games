@@ -6,6 +6,7 @@ export function mountGame({
   element,
   load,
   context,
+  onReady,
   onError,
 }: MountGameOptions): () => void {
   const controller = new AbortController();
@@ -18,10 +19,12 @@ export function mountGame({
       return;
     } // ушли со страницы, пока грузился чанк
 
-    unmount = await game.mount(element, { ...context, signal });
+    unmount = await game.mount(element, { ...context(game), signal });
     if (signal.aborted) {
-      unmount();
-    } // ушли, пока игра монтировалась
+      unmount(); // ушли, пока игра монтировалась
+      return;
+    }
+    onReady?.();
   }
 
   run().catch((error: unknown) => {

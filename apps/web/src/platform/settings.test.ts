@@ -29,6 +29,7 @@ describe("createSettingsStore", () => {
         reducedMotion: true,
         locale: "en",
         mouse: { sensitivity: 2.5, invertY: true },
+        fov: 105,
       };
 
       expect(withStored(stored).current).toEqual(stored);
@@ -68,6 +69,17 @@ describe("createSettingsStore", () => {
       });
       expect(current.locale).toBe("en");
       expect(current.reducedMotion).toBe(DEFAULT_SETTINGS.reducedMotion);
+    });
+
+    test.each([69, 111, "90", null])(
+      "fov %p out of range or not a number falls back to the default",
+      (fov) => {
+        expect(withStored({ fov }).current.fov).toBe(DEFAULT_SETTINGS.fov);
+      },
+    );
+
+    test.each([70, 110])("fov bound %p is inclusive", (fov) => {
+      expect(withStored({ fov }).current.fov).toBe(fov);
     });
 
     test("volume bounds are inclusive", () => {
@@ -202,5 +214,75 @@ describe("createSettingsStore", () => {
       expect(() => store.set({ quality: "low" })).not.toThrow();
       expect(other).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe("sync between tabs", () => {
+  /** What the browser fires in *other* tabs after a localStorage write. */
+  const storageEvent = (key: string | null) =>
+    Object.assign(new Event("storage"), { key });
+
+  function twoTabs() {
+    const storage = createMemoryStorage(); // localStorage is shared by the tabs
+    const window = new EventTarget();
+    const here = createSettingsStore(storage, { syncFrom: window });
+    const there = createSettingsStore(storage);
+    return { storage, window, here, there };
+  }
+
+  test("picks up a change made in another tab and notifies", () => {
+    const { window, here, there } = twoTabs();
+    const listener = mock((_next: Readonly<PlatformSettings>) => {});
+    here.subscribe(listener);
+
+    there.set({ fov: 100 });
+    window.dispatchEvent(storageEvent(SETTINGS_KEY));
+
+    expect(here.current.fov).toBe(100);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  test("ignores other keys and unchanged settings", () => {
+    const { window, here } = twoTabs();
+    const listener = mock(() => {});
+    here.subscribe(listener);
+
+    window.dispatchEvent(storageEvent("games:bridge:bindings"));
+    window.dispatchEvent(storageEvent(SETTINGS_KEY)); // nothing changed
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  test("broken JSON from another tab means defaults, not a crash", () => {
+    const { storage, window, here } = twoTabs();
+    here.set({ fov: 100 });
+    const listener = mock((_next: Readonly<PlatformSettings>) => {});
+    here.subscribe(listener);
+
+    storage.set(SETTINGS_KEY, "{nope");
+    window.dispatchEvent(storageEvent(SETTINGS_KEY));
+
+    expect(here.current).toEqual(DEFAULT_SETTINGS);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  test("localStorage cleared elsewhere (key null) resets to defaults", () => {
+    const { storage, window, here } = twoTabs();
+    here.set({ quality: "low" });
+
+    storage.remove(SETTINGS_KEY);
+    window.dispatchEvent(storageEvent(null));
+
+    expect(here.current.quality).toBe(DEFAULT_SETTINGS.quality);
+  });
+
+  test("dispose stops listening", () => {
+    const { window, here, there } = twoTabs();
+    here.dispose();
+
+    there.set({ fov: 100 });
+    window.dispatchEvent(storageEvent(SETTINGS_KEY));
+
+    expect(here.current.fov).toBe(DEFAULT_SETTINGS.fov);
   });
 });

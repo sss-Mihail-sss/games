@@ -29,6 +29,8 @@ export interface PointerOptions {
   /** The game's pitch range in radians, e.g. [−60°, +70°]. */
   pitchLimits: readonly [min: number, max: number];
   initialYaw?: number;
+  /** The capture is gone: Esc, another window, `unlock()`. The game may pause. */
+  onUnlock?: () => void;
 }
 
 export interface InputOptions<A extends readonly string[]> {
@@ -59,6 +61,15 @@ export interface Input<A extends readonly string[]> {
    * while it isn't: the game shows "click to play".
    */
   readonly locked: boolean;
+  /**
+   * Captures the mouse, e.g. from the menu's "Play". Call it inside the click
+   * or key handler: browsers lock only right after a user action. `false` if
+   * refused, e.g. Chrome within ~1 s after Esc; a click on the element still
+   * locks then. Without `pointer`, always `true`.
+   */
+  lock(): Promise<boolean>;
+  /** Releases the mouse if this input holds it. */
+  unlock(): void;
   setBindings(bindings: Bindings<A>): void;
   dispose(): void;
 }

@@ -9,15 +9,34 @@ import {
   type Mock,
 } from "bun:test";
 
+import type { Controls } from "@repo/game-core";
+
+import { createBindingsStore } from "./bindings.ts";
+import { createPlayStore } from "./play.ts";
 import { createPlatformContext } from "./platform.ts";
 import { createSettingsStore } from "./settings.ts";
 import { createMemoryStorage } from "./storage.ts";
 
-function setup() {
+const controls: Controls<"jump"> = {
+  actions: ["jump"],
+  labels: { jump: "Прыжок" },
+  defaults: { jump: ["Key:Space"] },
+};
+
+function setup({ withControls = true } = {}) {
   const storage = createMemoryStorage();
   const settings = createSettingsStore(storage);
-  const context = createPlatformContext("bridge", { storage, settings });
-  return { storage, settings, context };
+  const play = createPlayStore();
+  const bindings = withControls
+    ? createBindingsStore(storage, "bridge", controls)
+    : undefined;
+  const context = createPlatformContext("bridge", {
+    storage,
+    settings,
+    play,
+    bindings,
+  });
+  return { storage, settings, play, bindings, context };
 }
 
 describe("createPlatformContext", () => {
@@ -52,6 +71,56 @@ describe("createPlatformContext", () => {
       const { context } = setup();
 
       expect("set" in context.settings).toBe(false);
+    });
+  });
+
+  describe("storage", () => {
+    test("is the game's own, under its prefix", () => {
+      const { storage, context } = setup();
+      context.storage.set("character", "builder");
+
+      expect(storage.get("games:bridge:data:character")).toBe('"builder"');
+    });
+  });
+
+  describe("controls", () => {
+    test("shows the player's bindings and their changes", () => {
+      const { bindings, context } = setup();
+      const listener = mock(() => {});
+      context.controls.subscribe(listener);
+
+      bindings!.assign("jump", 0, "Key:KeyF");
+
+      expect(context.controls.bindings).toEqual({ jump: ["Key:KeyF"] });
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+
+    test("does not let the game change them", () => {
+      const { context } = setup();
+
+      expect("assign" in context.controls).toBe(false);
+      expect("reset" in context.controls).toBe(false);
+    });
+
+    test("a game without controls gets no bindings", () => {
+      const { context } = setup({ withControls: false });
+
+      expect(context.controls.bindings).toEqual({});
+      expect(() => context.controls.subscribe(() => {})()).not.toThrow();
+    });
+  });
+
+  describe("play", () => {
+    test("is the store's game side: the game sees states and may pause", () => {
+      const { play, context } = setup();
+      play.dispatch("ready");
+      play.dispatch("start");
+
+      context.play.pause();
+
+      expect(context.play.state).toBe("paused");
+      expect(play.state).toBe("paused");
+      expect("dispatch" in context.play).toBe(false);
     });
   });
 

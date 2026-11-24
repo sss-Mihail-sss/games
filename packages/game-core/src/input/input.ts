@@ -117,6 +117,12 @@ export function createInput<const A extends readonly string[]>({
     get locked() {
       return mouse?.locked ?? true;
     },
+    lock() {
+      return mouse ? mouse.request() : Promise.resolve(true);
+    },
+    unlock() {
+      mouse?.release();
+    },
     setBindings(next) {
       releaseAll(); // зажатое под старой раскладкой не должно залипнуть
       sourceMasks = buildSourceMasks(next);
@@ -142,31 +148,75 @@ function createMouseLook(
   let pitch = Math.min(maxPitch, Math.max(minPitch, 0));
   let locked = doc.pointerLockElement === element;
 
-  const request = () => {
-    // Raw movement without OS acceleration where supported; older browsers
-    // (Safari) don't know the option, and some don't return a promise.
-    const lock = (options?: { unadjustedMovement: boolean }) => {
-      try {
-        return Promise.resolve(element.requestPointerLock(options));
-      } catch (error) {
-        return Promise.reject(
-          error instanceof Error ? error : new Error(String(error)),
+  /** Resolves `true` once locked, `false` if the browser refused. */
+  const request = (): Promise<boolean> => {
+    if (locked) {
+      return Promise.resolve(true);
+    }
+    return new Promise((resolve) => {
+      // Older browsers (Safari) return nothing: then only the events tell.
+      let promised = true;
+      let settled = false;
+      const onChange = () => {
+        if (doc.pointerLockElement === element) {
+          finish(true);
+        }
+      };
+      const onError = () => {
+        if (!promised) {
+          finish(false);
+        }
+      };
+      const finish = (ok: boolean) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        doc.removeEventListener("pointerlockchange", onChange);
+        doc.removeEventListener("pointerlockerror", onError);
+        resolve(ok);
+      };
+      doc.addEventListener("pointerlockchange", onChange);
+      doc.addEventListener("pointerlockerror", onError);
+      signal.addEventListener("abort", () => finish(false), { once: true });
+
+      // Raw movement without OS acceleration where supported; browsers that
+      // don't know the option reject, so try once more without it.
+      const attempt = (options?: { unadjustedMovement: boolean }) => {
+        try {
+          const result = element.requestPointerLock(options);
+          if (result === undefined) {
+            promised = false;
+          }
+          return Promise.resolve(result);
+        } catch (error) {
+          return Promise.reject(
+            error instanceof Error ? error : new Error(String(error)),
+          );
+        }
+      };
+      attempt({ unadjustedMovement: true })
+        .catch(() => attempt())
+        .then(
+          () => {
+            if (doc.pointerLockElement === element) {
+              finish(true);
+            }
+          },
+          () => {
+            finish(false);
+          },
         );
-      }
-    };
-    lock({ unadjustedMovement: true })
-      .catch(() => lock())
-      .catch(() => {
-        // Refused (e.g. too soon after Esc): the overlay stays, the next click retries.
-      });
+    });
   };
 
-  // Browsers allow locking only from a user gesture, so: on click, never on mount.
+  // Browsers allow locking only from a user gesture: on click, never on mount.
+  // Refused (e.g. too soon after Esc)? The next click retries.
   element.addEventListener(
     "click",
     () => {
       if (!locked) {
-        request();
+        void request();
       }
     },
     { signal },
@@ -175,9 +225,11 @@ function createMouseLook(
   doc.addEventListener(
     "pointerlockchange",
     () => {
+      const was = locked;
       locked = doc.pointerLockElement === element;
-      if (!locked) {
+      if (was && !locked) {
         onUnlock(); // Esc must not leave W held down
+        options.onUnlock?.();
       }
     },
     { signal },
@@ -212,6 +264,7 @@ function createMouseLook(
     get locked() {
       return locked;
     },
+    request,
     release: () => {
       // Only our own lock: another game or page element may hold it.
       if (doc.pointerLockElement === element) {
